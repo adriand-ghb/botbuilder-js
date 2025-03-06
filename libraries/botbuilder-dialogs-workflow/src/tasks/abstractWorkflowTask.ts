@@ -136,6 +136,30 @@ export abstract class AbstractWorkflowTask<R, P extends JsonValue = Jsonify<R>, 
     }
 
     /**
+     * Converts the task execution result to a TaskResult.
+     * @param value The task's execution result.
+     * @returns The TaskResult.
+     */
+    protected succeeded(value: R): TaskResult<P> {
+        return {
+            success: true,
+            value: this.replaySettings.toJson(value)
+        };
+    }
+
+    /**
+     * Converts a task execution failure to a TaskResult.
+     * @param error The error that occurred during task execution.
+     * @returns The TaskResult.
+     */
+    protected failed(error: any): TaskResult<P> {
+        return {
+            success: false,
+            error: util.inspect(error, {depth: null, showHidden: true})
+        };
+    }
+
+    /**
      * Called to determine whether to retry the task.
      * @param error The error that occurred during task execution
      * @param attempt The current retry attempt
@@ -171,23 +195,14 @@ export abstract class AbstractWorkflowTask<R, P extends JsonValue = Jsonify<R>, 
      * @param args The arguments to pass to the task.
      * @returns The result of the task execution.
      */
-    private async invokeTask<T extends (...args: any[]) => Promise<R>>(
+    private invokeTask<T extends (...args: any[]) => Promise<R>>(
         task: T,
         ...args: Parameters<T>
     ) : Promise<TaskResult<P>> {
 
-        try{
-            return {
-                success: true,
-                value: this.replaySettings.toJson(await task(...args))
-            };
-        }
-        catch (error) {
-            return {
-                success: false,
-                error: util.inspect(error, {depth: null, showHidden: true})
-            };
-        }
+        return task(...args)
+            .then(result => this.succeeded(result))
+            .catch(error => this.failed(error));
     }
 }
 

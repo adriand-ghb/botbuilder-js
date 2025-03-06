@@ -76,3 +76,4 @@ export interface WorkflowTaskConfiguration<R, P extends JsonValue = Jsonify<R>, 
      */
     execute() : Generator<WorkflowTask, O, O>;
 }
+

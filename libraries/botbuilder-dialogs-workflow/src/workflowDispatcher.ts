@@ -10,6 +10,7 @@ import { PromptTask } from './tasks/promptTask';
 import { RestartWorkflowTask } from './tasks/restartWorkflowTask';
 import { UserWorkflowTask } from './tasks/userWorkflowTask';
 import { SuspendWorkflowTask } from './tasks/suspendWorkflowTask';
+import { ReceiveActivityTask } from './tasks/receiveActivityTask';
 import { TaskResult } from './tasks/taskResult';
 import { createHash, randomUUID } from 'crypto';
 import util from 'util';
@@ -20,7 +21,7 @@ import {
     DialogTurnResult,
 } from 'botbuilder-dialogs';
 
-import { TurnContext } from 'botbuilder-core';
+import { Activity, ResourceResponse, TurnContext } from 'botbuilder-core';
 
 import { 
     convertToJson,
@@ -30,6 +31,7 @@ import {
  } from './tasks/replayPolicy';
 import { WorkflowError } from './workflowError';
 import { Jsonify, JsonValue } from 'type-fest';
+
 
 /**
  * Workflow dispatcher implementation.
@@ -153,8 +155,34 @@ export class WorkflowDispatcher<O extends object, R = any> implements WorkflowCo
     /**
      * @inheritdoc
      */
-    public prompt(dialogId: string, options?: object): WorkflowTask {
-        return new PromptTask(dialogId, options);
+    public prompt<T = any>(
+        dialogId: string, 
+        options?: object
+    ): WorkflowTaskConfiguration<T> {
+        return new PromptTask<T>(dialogId, options, {
+            toJson: convertToJson, 
+            fromJson: convertFromJson
+        });
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public sendActivity(
+        activityOrText: string | Partial<Activity>,
+        speak?: string,
+        inputHint?: string,
+    ): WorkflowTaskConfiguration<ResourceResponse|undefined> {        
+        return this.call(async (context: TurnContext) => {
+            return await context.sendActivity(activityOrText, speak, inputHint);
+        });
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public receiveActivity(): WorkflowTaskConfiguration<Activity> {
+        return new ReceiveActivityTask();
     }
 
     /**
@@ -273,7 +301,8 @@ export class WorkflowDispatcher<O extends object, R = any> implements WorkflowCo
             result: result
         });
 
-        return this.replayNext(generator, task);
+        this.nextTask = this.state.history.length;
+        return task.replay(generator, result);
     }
 
     /**

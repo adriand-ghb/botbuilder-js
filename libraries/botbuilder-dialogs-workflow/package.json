@@ -35,16 +35,9 @@
     "zod": "^3.23.8",
     "type-fest": "3.13.1"
   },
-  "devDependencies": {
-    "adaptive-expressions": "4.1.6",
-    "botbuilder-core": "4.1.6",
-    "botbuilder-dialogs-adaptive-runtime-core": "4.1.6",
-    "jsonschema": "^1.4.1"
-  },
   "scripts": {
-    "buildv": "tsc -v",
     "build": "tsc -b",
-    "build-docs": "typedoc --theme markdown --entryPoint botbuilder-dialogs-adaptive --excludePrivate --includeDeclarations --ignoreCompilerErrors --module amd --out ..\\..\\doc\\botbuilder-dialogs .\\lib\\index.d.ts --hideGenerator --name \"Bot Builder SDK - Dialogs\" --readme none",
+    "build-docs": "typedoc --theme markdown --entryPoint botbuilder-dialogs-workflow --excludePrivate --includeDeclarations --ignoreCompilerErrors --module amd --out ..\\..\\doc\\botbuilder-dialogs .\\lib\\index.d.ts --hideGenerator --name \"Bot Builder SDK - Dialogs\" --readme none",
     "clean": "rimraf _ts3.4 lib tsconfig.tsbuildinfo",
     "depcheck": "depcheck --config ../../.depcheckrc --ignores botbuilder-ai,botbuilder-dialogs-adaptive",
     "lint": "eslint . --config ../../eslint.config.cjs",

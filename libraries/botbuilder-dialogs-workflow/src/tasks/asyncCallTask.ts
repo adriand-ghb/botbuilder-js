@@ -19,13 +19,13 @@ export class AsyncCallTask<R, P extends JsonValue = Jsonify<R>, O=P> extends Abs
     /**
      * Initializes a new AbstractWorkflowTask instance.
      * @param task The async function to invoke.
-     * @param {TaskResultSettings<R, P, O>} replaySettings - The settings used to configure the replay behavior.
+     * @param resultSetting - The settings used to configure the replay behavior.
      */
     constructor(
         private readonly task: (context: TurnContext) => Promise<R>,
-        replaySettings: TaskResultSettings<R, P, O>
+        resultSetting: TaskResultSettings<R, P, O>
     ) {
-        super(replaySettings);
+        super(resultSetting);
     }
 
     /**

@@ -61,13 +61,18 @@ export class UserWorkflowTask<R, P extends JsonValue = Jsonify<R>, O=P> extends 
         turnContext: TurnContext, 
         result?: TokenResponse
     ): Promise<TaskResult<P>> {
+        return !(result) || !result.token ?
+            Promise.resolve(this.failed("Login failed")) :
+            this.applyRetryPolicy(this.invoke, result.token, turnContext);
+    }
 
-        if (!(result) || !result.token) {
-            return Promise.resolve<TaskResult<P>>({
-                success: false, 
-                error: "Login failed"});
-        }
-
-        return this.applyRetryPolicy(this.invoke, result.token, turnContext);
+    /**
+     * @inheritdoc
+     */
+    protected override clone(): this {
+        return Object.assign(super.clone(), {
+            oauthDialogId: this.oauthDialogId,
+            invoke: this.invoke
+        });
     }
 }

@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 import { WorkflowTask } from './workflowTask';
-import { TurnContext } from 'botbuilder-core';
+import { Activity, ResourceResponse, TurnContext } from 'botbuilder-core';
 import { TaskResultSettings, TaskResultConverter } from './tasks/replayPolicy';
 import { WorkflowTaskConfiguration } from './workflowTaskConfiguration';
 import { Jsonify, JsonValue } from 'type-fest';
@@ -87,7 +87,43 @@ export interface WorkflowContext<O extends object = {}>  {
      * @param dialogId ID of the dialog to show.
      * @returns The 'WorkflowTask' for the invocation .
      */
-    prompt(dialogId: string, options?: object): WorkflowTask;
+    prompt<T = any>(
+        dialogId: string, 
+        options?: object
+    ): WorkflowTaskConfiguration<T>; 
+
+    /**
+     * Sends a message to the user.
+     * 
+     * @param activityOrText The activity or text to send.
+     * @param speak Optional. The text to be spoken by your bot on a speech-enabled channel.
+     * @param inputHint Optional. Indicates whether your bot is accepting, expecting, or ignoring user
+     *      input after the message is delivered to the client. One of: 'acceptingInput', 'ignoringInput',
+     *      or 'expectingInput'. Default is 'acceptingInput'.
+     * @returns A ResourceResponse.
+     * @remarks
+     * For example:
+     * ```JavaScript
+     * yield *context.sendActivity(`Hello World`).execute();
+     * ```
+     *
+     * **See also**
+     *
+     * - [sendActivities](xref:botbuilder-core.TurnContext.sendActivity)
+     */
+    sendActivity(
+        activityOrText: string | Partial<Activity>,
+        speak?: string,
+        inputHint?: string,
+    ): WorkflowTaskConfiguration<ResourceResponse|undefined>;        
+
+
+    /**
+     * Waits to receive an event from the user.
+     * 
+     * @returns The 'WorkflowTask' for the invocation .
+     */
+    receiveActivity(): WorkflowTaskConfiguration<Activity>;
 
     /**
      * Restarts the workflow.

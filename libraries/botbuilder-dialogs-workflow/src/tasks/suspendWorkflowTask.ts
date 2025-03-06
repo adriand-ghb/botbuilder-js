@@ -3,7 +3,7 @@
 
 import { AbstractWorkflowTask} from './abstractWorkflowTask'
 import { TaskResult } from './taskResult'
-import { JsonValue } from 'type-fest';
+import { Jsonify, JsonValue } from 'type-fest';
 import { DialogTurnResult, DialogContext } from 'botbuilder-dialogs';
 import { TurnContext } from 'botbuilder-core';
 import { TaskResultSettings } from './replayPolicy';
@@ -14,7 +14,7 @@ import { TaskResultSettings } from './replayPolicy';
  * @template P The task's persisted execution result type.
  * @template O The task's observable execution result type.
  */
-export abstract class SuspendWorkflowTask<R, P extends JsonValue, O=P> extends AbstractWorkflowTask<R, P, O> {
+export abstract class SuspendWorkflowTask<R, P extends JsonValue = Jsonify<R>, O=P> extends AbstractWorkflowTask<R, P, O> {
 
     /**
      * Initializes a new SuspendWorkflowTask instance.
@@ -39,9 +39,15 @@ export abstract class SuspendWorkflowTask<R, P extends JsonValue, O=P> extends A
      * @param result The result of the invoked task.
      * @returns A promise resolving to the invocation result.
      */
-    public abstract onResume(
+    public onResume(
         turnContext: TurnContext, 
         result: any
-    ): Promise<TaskResult<P>>;
+    ): Promise<TaskResult<P>> {
+        try {
+            return Promise.resolve<TaskResult<P>>(this.succeeded(result));
+        } catch (error) {
+            return Promise.resolve<TaskResult<P>>(this.failed(error));
+        }
+    }
 }
 
