@@ -2,9 +2,8 @@
 // Licensed under the MIT License.
 
 import util from 'util';
-import { Jsonify, JsonValue } from 'type-fest';
+import { Jsonify } from 'type-fest';
 
-import {WorkflowTask} from '../workflowTask'
 import {TaskResult} from './taskResult'
 
 import {
@@ -16,30 +15,28 @@ import {
 } from './retryPolicy'
 
 import {
-    TaskResultSettings,
-    TaskResultConverter,
+    convertToJson,
 } from './replayPolicy'
 
 import { WorkflowError } from '../workflowError';
-import { WorkflowTaskConfiguration } from '../workflowTaskConfiguration';
+import { WorkflowTask } from '../workflowTask';
+import { TurnContext } from 'botbuilder-core';
 
 /**
  * Abstract task that can be executed in a workflow.
  *
  * @template R The task's execution result type
- * @template P The task's persisted execution result type.
  * @template O The task's observable execution result type.
  */
-export abstract class AbstractWorkflowTask<R, P extends JsonValue = Jsonify<R>, O=P> implements 
-    WorkflowTask, WorkflowTaskConfiguration<R, P, O> {
+export abstract class AbstractWorkflowTask<R, O = Jsonify<R>> implements WorkflowTask<R, O> {
 
     /**
      * Initializes a new AbstractWorkflowTask instance.
-     * @param {TaskResultSettings<R, P, O>} replaySettings - The settings used to configure the replay behavior.
-     * @param {RetryPolicy} retryPolicy - The retry policy used to configure the retry behavior.
+     * @param projector The callback used to convert the deserialized result to its observable value
+     * @param retryPolicy - The retry policy used to configure the retry behavior.
      */
     constructor(
-        private readonly replaySettings: TaskResultSettings<R, P, O>,
+        private readonly projector: (value: Jsonify<R>) => O,
         private readonly retryPolicy: RetryPolicy = noRetry
     ) {
     }
@@ -86,26 +83,26 @@ export abstract class AbstractWorkflowTask<R, P extends JsonValue = Jsonify<R>, 
     }
 
     /**
-     * Configures the task's replay behavior.
-     * @template P2 The task's new persisted execution result type.
-     * @template O2 The task's new observable execution result type.
-     * @param {TaskResultSettings<R, P2, O2> | TaskResultConverter<P, O2>} settings - The settings used to configure the replay behavior.
-     * @returns The task configuration.
+     * @inheritdoc
      */
-    configureResult<P2 extends JsonValue, O2>(
-        settings: TaskResultSettings<R, P2, O2> | TaskResultConverter<P, O2>
-    ) : any {
+    public abstract then<T>(
+        continuation: (value: R, context: TurnContext) => T | Promise<T>
+    ) : WorkflowTask<T, Jsonify<T>>;
 
-        if (typeof settings === 'function') {
-            return Object.assign(this.clone(), {
-                toJson: this.replaySettings.toJson,
-                fromJson: settings,
-            });
-        }
-
-        return Object.assign(this.clone(), settings);
+    /**
+     * @inheritdoc
+     */
+    public project<T>(
+        projector: (value: Jsonify<R>) => T
+    ) : WorkflowTask<R, T> {
+        return Object.assign(this.clone(), {
+            projector: projector
+        });
     }
 
+    /**
+     * @inheritdoc
+     */
     public *execute() : Generator<WorkflowTask, O, O> {
         let result: O = yield this;
         return result;
@@ -119,11 +116,11 @@ export abstract class AbstractWorkflowTask<R, P extends JsonValue = Jsonify<R>, 
      */
     public replay<WorkflowResultType>(
         generator: Generator<WorkflowTask, WorkflowResultType>, 
-        result: TaskResult<P>
+        result: TaskResult<R>
     ) : IteratorResult<WorkflowTask, WorkflowResultType> {
 
         return (result.success === true) ?
-            generator.next(this.replaySettings.fromJson(result.value)) :
+            generator.next(this.projector(result.value)) :
             generator.throw(new WorkflowError(result.error));
     }
     
@@ -140,10 +137,10 @@ export abstract class AbstractWorkflowTask<R, P extends JsonValue = Jsonify<R>, 
      * @param value The task's execution result.
      * @returns The TaskResult.
      */
-    protected succeeded(value: R): TaskResult<P> {
+    protected succeeded(value: R): TaskResult<R> {
         return {
             success: true,
-            value: this.replaySettings.toJson(value)
+            value: convertToJson(value),
         };
     }
 
@@ -152,7 +149,7 @@ export abstract class AbstractWorkflowTask<R, P extends JsonValue = Jsonify<R>, 
      * @param error The error that occurred during task execution.
      * @returns The TaskResult.
      */
-    protected failed(error: any): TaskResult<P> {
+    protected failed(error: any): TaskResult<R> {
         return {
             success: false,
             error: util.inspect(error, {depth: null, showHidden: true})
@@ -178,7 +175,7 @@ export abstract class AbstractWorkflowTask<R, P extends JsonValue = Jsonify<R>, 
     protected async applyRetryPolicy<T extends (...args: any[]) => Promise<R>>(
         task: T,
         ...args: Parameters<T>
-    ) : Promise<TaskResult<P>> {
+    ) : Promise<TaskResult<R>> {
     
         for(var attempt: number = 1;;++attempt) {
             var result = await this.invokeTask(task, ...args);
@@ -198,7 +195,7 @@ export abstract class AbstractWorkflowTask<R, P extends JsonValue = Jsonify<R>, 
     private invokeTask<T extends (...args: any[]) => Promise<R>>(
         task: T,
         ...args: Parameters<T>
-    ) : Promise<TaskResult<P>> {
+    ) : Promise<TaskResult<R>> {
 
         return task(...args)
             .then(result => this.succeeded(result))

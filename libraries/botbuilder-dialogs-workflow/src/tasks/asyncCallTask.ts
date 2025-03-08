@@ -1,31 +1,30 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+import { WorkflowTask } from '../workflowTask';
 import { AbstractWorkflowTask } from './abstractWorkflowTask'
 import { TaskResult } from './taskResult'
-import { TaskResultSettings, TaskResultConverter } from './replayPolicy'
 import { TurnContext } from 'botbuilder-core'
-import { JsonValue, Jsonify } from 'type-fest';
+import { Jsonify } from 'type-fest';
 
 /**
- * Represewnts the invocation of an async function.
+ * Represents the invocation of an async function.
  *
  * @template R The task's execution result type
- * @template P The task's persisted execution result type.
  * @template O The task's observable execution result type.
 */
-export class AsyncCallTask<R, P extends JsonValue = Jsonify<R>, O=P> extends AbstractWorkflowTask<R, P, O> {
+export class AsyncCallTask<R, O = Jsonify<R>> extends AbstractWorkflowTask<R, O> {
 
     /**
      * Initializes a new AbstractWorkflowTask instance.
      * @param task The async function to invoke.
-     * @param resultSetting - The settings used to configure the replay behavior.
+     * @param projector The callback used to convert the deserialized result to its observable value
      */
     constructor(
         private readonly task: (context: TurnContext) => Promise<R>,
-        resultSetting: TaskResultSettings<R, P, O>
+        projector: (value: Jsonify<R>) => O
     ) {
-        super(resultSetting);
+        super(projector);
     }
 
     /**
@@ -43,11 +42,23 @@ export class AsyncCallTask<R, P extends JsonValue = Jsonify<R>, O=P> extends Abs
     }
 
     /**
+     * @inheritdoc
+     */
+    override then<T>(
+        continuation: (value: R, context: TurnContext) => T | Promise<T>
+    ): WorkflowTask<T, Jsonify<T>> {
+
+        return Object.assign(this.clone(), {
+            task: (context) => this.task(context).then(result => continuation(result, context))
+        });        
+    }
+
+    /**
      * Executes the task.
      * @param context The turn context for the current turn of conversation with the user.
      * @returns The result of the task execution.
      */
-    public invoke(context: TurnContext): Promise<TaskResult<P>> {
+    public invoke(context: TurnContext): Promise<TaskResult<R>> {
         return this.applyRetryPolicy(this.task, context);
     }
 

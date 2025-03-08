@@ -6,7 +6,6 @@ import { SuspendWorkflowTask } from "./suspendWorkflowTask";
 import { TaskResult } from './taskResult'
 import { DialogTurnResult, DialogContext } from 'botbuilder-dialogs';
 import { TurnContext } from 'botbuilder-core';
-import { JsonValue } from 'type-fest';
 
 
 /**
@@ -21,10 +20,10 @@ export class RestartWorkflowTask extends SuspendWorkflowTask<never, never> {
     constructor(
         private readonly options?: object
     ) {
-        super({
-            toJson: () => assert.fail("Unexpected call"),
-            fromJson: () => assert.fail("Unexpected call")
-        });            
+        super(
+            () => assert.fail("Unexpected call"),
+            () => assert.fail("Unexpected call")
+        );            
     }
 
     /**
@@ -57,6 +56,10 @@ export class RestartWorkflowTask extends SuspendWorkflowTask<never, never> {
         turnContext: TurnContext, 
         result: any
     ): Promise<TaskResult<never>> {
-        assert.fail("RestartWorkflowTask.onResume should never be called");
+        assert.fail("RestartWorkflowTask.onResume will never be called");
+    }
+
+    protected override clone(): this {
+        assert.fail("RestartWorkflowTask.clone will never be called");
     }
 }

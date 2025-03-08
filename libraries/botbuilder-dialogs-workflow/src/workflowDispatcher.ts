@@ -3,12 +3,10 @@
 
 import { WorkflowContext } from './workflowContext';
 import { WorkflowTask } from './workflowTask';
-import { WorkflowTaskConfiguration } from './workflowTaskConfiguration';
 import { AbstractWorkflowTask } from './tasks/abstractWorkflowTask';
 import { AsyncCallTask } from './tasks/asyncCallTask';
 import { PromptTask } from './tasks/promptTask';
 import { RestartWorkflowTask } from './tasks/restartWorkflowTask';
-import { UserWorkflowTask } from './tasks/userWorkflowTask';
 import { SuspendWorkflowTask } from './tasks/suspendWorkflowTask';
 import { ReceiveActivityTask } from './tasks/receiveActivityTask';
 import { TaskResult } from './tasks/taskResult';
@@ -21,7 +19,7 @@ import {
     DialogTurnResult,
 } from 'botbuilder-dialogs';
 
-import { Activity, ResourceResponse, TurnContext } from 'botbuilder-core';
+import { Activity, ResourceResponse, TokenResponse, TurnContext } from 'botbuilder-core';
 
 import { 
     convertToJson,
@@ -32,6 +30,9 @@ import {
 import { WorkflowError } from './workflowError';
 import { Jsonify, JsonValue } from 'type-fest';
 
+function identity<T>(value: T): T {
+    return value;
+}
 
 /**
  * Workflow dispatcher implementation.
@@ -81,14 +82,12 @@ export class WorkflowDispatcher<O extends object, R = any> implements WorkflowCo
      * @inheritdoc
      */
     public get currentUtcTime(): Date {
-       var callId = this.getCallId();
-
        if (this.nextTask == this.state.history.length) {
             assert.ok(!this.state.resumeState);
             this.state.history.push({
                  kind: "currentUtcTime",
-                 hashedId: callId,
-                 result: {success: true, value: new Date().toISOString()}
+                 hashedId: '',
+                 result: {success: true, value: new Date().toJSON()}
             });
        }
 
@@ -98,7 +97,7 @@ export class WorkflowDispatcher<O extends object, R = any> implements WorkflowCo
        assert.ok(entry.result.success == true);
        assert.ok(typeof entry.result.value === 'string');
        assert.equal("currentUtcTime", entry.kind);
-       assert.equal(callId, entry.hashedId);
+       assert.equal('', entry.hashedId);
        return new Date(entry.result.value);
     }
 
@@ -106,13 +105,11 @@ export class WorkflowDispatcher<O extends object, R = any> implements WorkflowCo
      * @inheritdoc
      */
     public newGuid(): string {
-        var callId = this.getCallId();
-
         if (this.nextTask == this.state.history.length) {
              assert.ok(!this.state.resumeState);
              this.state.history.push({
                   kind: "newGuid",
-                  hashedId: callId,
+                  hashedId: '',
                   result: {success: true, value: randomUUID()}
              });
         }
@@ -123,7 +120,7 @@ export class WorkflowDispatcher<O extends object, R = any> implements WorkflowCo
         assert.ok(entry.result.success == true);
         assert.ok(typeof entry.result.value === 'string');
         assert.equal("newGuid", entry.kind);
-        assert.equal(callId, entry.hashedId);
+        assert.equal('', entry.hashedId);
         return entry.result.value; 
     }
 
@@ -132,11 +129,8 @@ export class WorkflowDispatcher<O extends object, R = any> implements WorkflowCo
      */
     public call<T>(
         task: (context: TurnContext) => Promise<T>
-    ): WorkflowTaskConfiguration<T> {
-        return new AsyncCallTask<T>(task, {
-            toJson: convertToJson, 
-            fromJson: convertFromJson
-        });
+    ): WorkflowTask<T> {
+        return new AsyncCallTask<T>(task, identity);
     }
 
     /**
@@ -145,11 +139,14 @@ export class WorkflowDispatcher<O extends object, R = any> implements WorkflowCo
     public callAsUser<T>(
         oauthDialogId: string, 
         task: (token: string, context: TurnContext) => Promise<T>
-    ): WorkflowTaskConfiguration<T> {
-        return new UserWorkflowTask<T>(oauthDialogId, task, {
-            toJson: convertToJson, 
-            fromJson: convertFromJson
-        });
+    ): WorkflowTask<T> {
+        return this.prompt<TokenResponse|undefined>(oauthDialogId)
+            .then<T>((tokenResponse, context) => {
+                if (!tokenResponse || !tokenResponse.token) {
+                    throw new WorkflowError("Sign-in failed.");
+                }
+                return task(tokenResponse.token, context);
+            });
     }
 
     /**
@@ -158,11 +155,8 @@ export class WorkflowDispatcher<O extends object, R = any> implements WorkflowCo
     public prompt<T = any>(
         dialogId: string, 
         options?: object
-    ): WorkflowTaskConfiguration<T> {
-        return new PromptTask<T>(dialogId, options, {
-            toJson: convertToJson, 
-            fromJson: convertFromJson
-        });
+    ): WorkflowTask<T> {
+        return new PromptTask<T>(dialogId, options, identity);
     }
 
     /**
@@ -172,7 +166,7 @@ export class WorkflowDispatcher<O extends object, R = any> implements WorkflowCo
         activityOrText: string | Partial<Activity>,
         speak?: string,
         inputHint?: string,
-    ): WorkflowTaskConfiguration<ResourceResponse|undefined> {        
+    ): WorkflowTask<ResourceResponse|undefined> {        
         return this.call(async (context: TurnContext) => {
             return await context.sendActivity(activityOrText, speak, inputHint);
         });
@@ -181,14 +175,14 @@ export class WorkflowDispatcher<O extends object, R = any> implements WorkflowCo
     /**
      * @inheritdoc
      */
-    public receiveActivity(): WorkflowTaskConfiguration<Activity> {
+    public receiveActivity(): WorkflowTask<Activity> {
         return new ReceiveActivityTask();
     }
 
     /**
      * @inheritdoc
      */
-    public restart(options?: O): WorkflowTask {
+    public restart(options?: O): WorkflowTask<never> {
         return new RestartWorkflowTask(options);
     }
 
@@ -328,7 +322,7 @@ export class WorkflowDispatcher<O extends object, R = any> implements WorkflowCo
 
     private getCallId(): string {
         let stack: any = {};
-        Error.captureStackTrace(stack); 
+        Error.captureStackTrace(stack, this.run); 
 
         if (stack.stack) {
             return this.getHashOf(stack.stack);

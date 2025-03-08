@@ -6,8 +6,7 @@
  * Licensed under the MIT License.
  */
 
-export {WorkflowTask} from './workflowTask';
 export {WorkflowError} from './workflowError';
-export {WorkflowTaskConfiguration} from './workflowTaskConfiguration';
+export {WorkflowTask } from './workflowTask';
 export {WorkflowContext} from './workflowContext';
 export {WorkflowDialog} from './workflowDialog';

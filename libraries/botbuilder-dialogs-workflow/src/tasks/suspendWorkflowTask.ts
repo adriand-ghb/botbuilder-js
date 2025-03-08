@@ -3,26 +3,47 @@
 
 import { AbstractWorkflowTask} from './abstractWorkflowTask'
 import { TaskResult } from './taskResult'
-import { Jsonify, JsonValue } from 'type-fest';
+import { Jsonify } from 'type-fest';
 import { DialogTurnResult, DialogContext } from 'botbuilder-dialogs';
 import { TurnContext } from 'botbuilder-core';
-import { TaskResultSettings } from './replayPolicy';
+import { WorkflowTask } from '../workflowTask';
+
+function resumeDefault<R>(context: TurnContext, result: any): Promise<R> {
+    return Promise.resolve<R>(result);
+}
 
 /**
  * Abstract task that will cause the current workflow to be suspend and resumed later.
  * @template R The task's execution result type
- * @template P The task's persisted execution result type.
  * @template O The task's observable execution result type.
  */
-export abstract class SuspendWorkflowTask<R, P extends JsonValue = Jsonify<R>, O=P> extends AbstractWorkflowTask<R, P, O> {
+export abstract class SuspendWorkflowTask<R, O = Jsonify<R>> extends AbstractWorkflowTask<R, O> {
 
     /**
      * Initializes a new SuspendWorkflowTask instance.
-     * @param {TaskResultSettings<R, P, O>} replaySettings - The settings used to configure the replay behavior.
-     */
-    constructor(replaySettings: TaskResultSettings<R, P, O>) {        
-        super(replaySettings);
+     * @param projector The callback used to convert the deserialized result to its observable value
+     * @param resume The callback used to retrieve the task result.
+    */
+    constructor(
+        projector: (value: Jsonify<R>) => O,
+        private readonly resume: (context: TurnContext, result: any) => Promise<R> = resumeDefault<R>
+    ) {
+        super(projector);
     }    
+
+
+    /**
+     * @inheritdoc
+     */
+    override then<T>(
+        continuation: (value: R, context: TurnContext) => T | Promise<T>
+    ): WorkflowTask<T, Jsonify<T>> {
+
+        return Object.assign(super.clone(), {
+            resume: (context, result) => this.resume(context, result)
+                .then(prev => continuation(prev, context))
+        });        
+    }
 
     /**
      * Invoked before the workflow is suspended.
@@ -42,12 +63,17 @@ export abstract class SuspendWorkflowTask<R, P extends JsonValue = Jsonify<R>, O
     public onResume(
         turnContext: TurnContext, 
         result: any
-    ): Promise<TaskResult<P>> {
-        try {
-            return Promise.resolve<TaskResult<P>>(this.succeeded(result));
-        } catch (error) {
-            return Promise.resolve<TaskResult<P>>(this.failed(error));
-        }
+    ): Promise<TaskResult<R>> {
+        return this.applyRetryPolicy(this.resume, turnContext, result);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    protected override clone(): this {
+        return Object.assign(super.clone(), {
+            resume: this.resume
+        });
     }
 }
 

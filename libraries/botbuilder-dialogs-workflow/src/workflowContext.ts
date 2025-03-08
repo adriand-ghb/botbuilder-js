@@ -1,10 +1,9 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-import { WorkflowTask } from './workflowTask';
 import { Activity, ResourceResponse, TurnContext } from 'botbuilder-core';
 import { TaskResultSettings, TaskResultConverter } from './tasks/replayPolicy';
-import { WorkflowTaskConfiguration } from './workflowTaskConfiguration';
+import { WorkflowTask } from './workflowTask';
 import { Jsonify, JsonValue } from 'type-fest';
 
 
@@ -67,7 +66,7 @@ export interface WorkflowContext<O extends object = {}>  {
      */
     call<T>(
         task: (context: TurnContext) => Promise<T>
-    ): WorkflowTaskConfiguration<T>; 
+    ): WorkflowTask<T>; 
 
     /**
      * Acquires a bearer token from the user and invokes the given task.
@@ -79,7 +78,7 @@ export interface WorkflowContext<O extends object = {}>  {
     callAsUser<T>(
         oauthDialogId: string, 
         task: (token: string, context: TurnContext) => Promise<T>
-    ): WorkflowTaskConfiguration<T>; 
+    ): WorkflowTask<T>; 
 
     /**
      * Shows a dialog to the user.
@@ -90,7 +89,7 @@ export interface WorkflowContext<O extends object = {}>  {
     prompt<T = any>(
         dialogId: string, 
         options?: object
-    ): WorkflowTaskConfiguration<T>; 
+    ): WorkflowTask<T>; 
 
     /**
      * Sends a message to the user.
@@ -115,7 +114,7 @@ export interface WorkflowContext<O extends object = {}>  {
         activityOrText: string | Partial<Activity>,
         speak?: string,
         inputHint?: string,
-    ): WorkflowTaskConfiguration<ResourceResponse|undefined>;        
+    ): WorkflowTask<ResourceResponse|undefined>;        
 
 
     /**
@@ -123,7 +122,7 @@ export interface WorkflowContext<O extends object = {}>  {
      * 
      * @returns The 'WorkflowTask' for the invocation .
      */
-    receiveActivity(): WorkflowTaskConfiguration<Activity>;
+    receiveActivity(): WorkflowTask<Activity>;
 
     /**
      * Restarts the workflow.
@@ -131,7 +130,7 @@ export interface WorkflowContext<O extends object = {}>  {
      * @param options Optional, initial information to pass to the [Dialog](xref:botbuilder-dialogs.Dialog).
      * @returns The 'WorkflowTask' for the invocation .
      */
-    restart(options?: O): WorkflowTask;
+    restart(options?: O): WorkflowTask<never>;
 
     /**
      * Binds a non-deterministic function to the workflow.

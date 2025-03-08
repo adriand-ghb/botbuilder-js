@@ -1,16 +1,16 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-import { JsonValue } from "type-fest";
+import { Jsonify, JsonValue } from "type-fest";
 
 
 /**
  * Represents the outcome of a task's execution.
  * @template T (Optional) type of successful result value.
  */
-export type TaskResult<T extends JsonValue = JsonValue> = {
+export type TaskResult<T = any> = {
   success: true, 
-  value?: T
+  value?: Jsonify<T>,
 } | {
   success: false, 
   error: string

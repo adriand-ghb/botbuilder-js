@@ -2,30 +2,30 @@
 // Licensed under the MIT License.
 
 import { SuspendWorkflowTask } from "./suspendWorkflowTask";
-import { TaskResult } from './taskResult'
-import { Jsonify, JsonValue } from 'type-fest';
+import { Jsonify } from 'type-fest';
 import { DialogTurnResult, DialogContext } from 'botbuilder-dialogs';
-import { TurnContext } from 'botbuilder-core';
-import { TaskResultSettings } from "./replayPolicy";
 
 
 /**
- * Represents a task that prompts the user for input.
- */
-export class PromptTask<R, P extends JsonValue = Jsonify<R>, O=P> extends SuspendWorkflowTask<R, P, O> {
+ * Represents a task that shows a dialog and receives the dialog's result.
+ * 
+ * @template R The task's execution result type
+ * @template O The task's observable execution result type.
+*/
+export class PromptTask<R, O = Jsonify<R>> extends SuspendWorkflowTask<R, O> {
 
     /**
      * Initializes a new PromptTask instance.
      * @param promptId The dialog ID of the prompt to invoke.
      * @param options (Optional) The prompt options.
-     * @param resultSetting - The settings used to configure the replay behavior.
+     * @param projector The callback used to convert the deserialized result to its observable value
      */
     constructor(
         private readonly promptId: string,
         private readonly options: object | undefined,
-        resultSettings: TaskResultSettings<R, P, O>
+        projector: (value: Jsonify<R>) => O
     ) {
-        super(resultSettings);
+        super(projector);
     }
 
     /**
