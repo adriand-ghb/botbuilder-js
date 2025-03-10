@@ -9,37 +9,37 @@ import {
     DialogTurnResult,
 } from 'botbuilder-dialogs'
 
-import { WorkflowContext } from './workflowContext'
-import { WorkflowTask } from './workflowTask';
+import { DialogFlowContext } from './dialogFlowContext'
+import { DialogFlowTask } from './dialogFlowTask';
 import { 
     WorkflowDispatcher,
     WorkflowDialogState
- } from './workflowDispatcher';
+ } from './dialogFlowDispatcher';
 
 
 /**
-* A workflow is a dialog used to implement the user interaction using a functional programing model. 
-* Workflows use event sourcing transparently. Behind the scenes, the yield operator in a workflow function yields control of 
-* the workflow thread back to the workflow dispatcher. The dispatcher then commits any new actions that the workflow function
-* scheduled (such as starting a child dialog or making an async call) to storage. The transparent commit action updates 
-* the execution history of the workflow instance by appending all new events into storage, much like an append-only log. 
-* At this point, the workflow dialog ends its turn and when the dialog is resumed, the dispatcher re-executes the entire function
+* FluentDialog uses event sourcing to arbitrarily complex user interactions in a seemingly uninterrupted execution flow . 
+* Behind the scenes, the yield operator in the dialog flow function yields control of the execution thread back to a 
+* dialog flow dispatcher. The dispatcher then commits any new actions that the dialog flow function scheduled (such as 
+* starting a child dialog, reveiving an activity or making an async call) to storage. The transparent commit action updates 
+* the execution history of the dialog flowby appending all new events into storage, much like an append-only log. 
+* At this point, the dialog ends its turn and when the dialog is resumed, the dispatcher re-executes the entire function
 * from the start to rebuild the local state. During the replay, if the code tries to begin a child dialog (or do any  async work), 
-* the dispatcher consults the execution history, replays that result and the workflow code continues to run. 
+* the dispatcher consults the execution history, replays that result and the function code continues to run. 
 * The replay continues until the function code is finished or until it yields a new suspension task.
 *
- * @param O (Optional) type of options passed to the workflow dialog in the call to `DialogContext.beginDialog()`.
- * @param T (Optional) type of value returned by the workflow function.
+ * @param O (Optional) type of options passed to the fluent dialog in the call to `DialogContext.beginDialog()`.
+ * @param T (Optional) type of value returned by the dialog flow function.
  */
-export class WorkflowDialog<O extends object = {}, T = any> extends Dialog<O> {
+export class FluentDialog<O extends object = {}, T = any> extends Dialog<O> {
 
     /**
      * Creates a new workflow dialog.
      *
      * @param dialogId Unique ID of the dialog within the component or set its being added to.
-     * @param workflow The workflow generator function.
+     * @param dialogFlow The workflow generator function.
      */
-    constructor(dialogId: string, private readonly workflow: (context: WorkflowContext<O>) => Generator<WorkflowTask, T>) {
+    constructor(dialogId: string, private readonly dialogFlow: (context: DialogFlowContext<O>) => Generator<DialogFlowTask, T>) {
         super(dialogId);
     }
 
@@ -104,6 +104,6 @@ export class WorkflowDialog<O extends object = {}, T = any> extends Dialog<O> {
      */
     protected runWorkflow(dc: DialogContext, reason: DialogReason, result?: any): Promise<DialogTurnResult> {
         const context = new WorkflowDispatcher<O,T>(dc);
-        return context.run(this.workflow, reason, result);
+        return context.run(this.dialogFlow, reason, result);
     }
 }

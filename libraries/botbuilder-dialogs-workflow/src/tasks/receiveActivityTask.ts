@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-import { SuspendWorkflowTask } from "./suspendWorkflowTask";
+import { SuspendDialogFlowTask } from "./suspendDialogFlowTask";
 import { DialogTurnResult, DialogContext, Dialog } from 'botbuilder-dialogs';
 import { Activity } from 'botbuilder-core';
 import { convertToJson } from "./replayPolicy";
@@ -10,7 +10,7 @@ import { convertToJson } from "./replayPolicy";
 /**
  * Represents a task that prompts the user for input.
  */
-export class ReceiveActivityTask extends SuspendWorkflowTask<Activity> {
+export class ReceiveActivityTask extends SuspendDialogFlowTask<Activity> {
 
     /**
      * Initializes a new ReceiveActivityTask instance.
@@ -23,7 +23,7 @@ export class ReceiveActivityTask extends SuspendWorkflowTask<Activity> {
      * @inheritdoc
      */
     override get kind(): string {
-        return 'Wait';
+        return 'ReceiveActivity';
     }
 
     /**

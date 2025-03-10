@@ -1,8 +1,8 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-import { WorkflowTask } from '../workflowTask';
-import { AbstractWorkflowTask } from './abstractWorkflowTask'
+import { DialogFlowTask } from '../dialogFlowTask';
+import { AbstractDialogFlowTask, defaultProjector } from './abstractDialogFlowTask'
 import { TaskResult } from './taskResult'
 import { TurnContext } from 'botbuilder-core'
 import { Jsonify } from 'type-fest';
@@ -13,7 +13,7 @@ import { Jsonify } from 'type-fest';
  * @template R The task's execution result type
  * @template O The task's observable execution result type.
 */
-export class AsyncCallTask<R, O = Jsonify<R>> extends AbstractWorkflowTask<R, O> {
+export class AsyncCallTask<R, O = Jsonify<R>> extends AbstractDialogFlowTask<R, O> {
 
     /**
      * Initializes a new AbstractWorkflowTask instance.
@@ -46,11 +46,13 @@ export class AsyncCallTask<R, O = Jsonify<R>> extends AbstractWorkflowTask<R, O>
      */
     override then<T>(
         continuation: (value: R, context: TurnContext) => T | Promise<T>
-    ): WorkflowTask<T, Jsonify<T>> {
-
-        return Object.assign(this.clone(), {
-            task: (context) => this.task(context).then(result => continuation(result, context))
-        });        
+    ): DialogFlowTask<T> {
+        
+        return Object.assign(
+            this.project(defaultProjector) as AsyncCallTask<R>, {
+                task: (context: TurnContext) => this.task(context).then(result => continuation(result, context))
+            }
+        );    
     }
 
     /**

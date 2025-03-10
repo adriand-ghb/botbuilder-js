@@ -1,13 +1,13 @@
 const { ActivityTypes, ConversationState, MemoryStorage, TestAdapter, assertActivity } = require('botbuilder-core');
 const { ActivityPrompt, DialogReason, DialogSet, DialogTurnStatus } = require('botbuilder-dialogs');
-const { WorkflowDialog, WorkflowContext } = require('../lib');
+const { FluentDialog, DialogFlowContext } = require('../lib');
 
 const assert = require('assert');
 const { text } = require('stream/consumers');
 
 const beginMessage = { text: 'begin', type: 'message' };
 
-function setupWorkflowTest(workflow) {
+function setupDialogFlowTest(dialogFlow) {
     const adapter = new TestAdapter(async (turnContext) => {
         const dc = await dialogs.createContext(turnContext);
 
@@ -31,18 +31,18 @@ function setupWorkflowTest(workflow) {
     const dialogState = convoState.createProperty('dialogState');
     const dialogs = new DialogSet(dialogState);
     dialogs.add(
-        new WorkflowDialog('a', workflow)
+        new FluentDialog('a', dialogFlow)
     );
 
     return adapter;
 }
 
-describe('WorkflowDialog', function () {
+describe('FluentDialog', function () {
     this.timeout(5000);
 
     it('should send and receive activities.', async function () {
 
-        function *testWorkflow(context) {
+        function *testDialogFlow(context) {
             yield *context.sendActivity('bot responding.').execute();
         
             let message = yield *context.receiveActivity().then(activity => activity.text).execute();
@@ -52,7 +52,7 @@ describe('WorkflowDialog', function () {
         }
         
         // Initialize TestAdapter.
-        const adapter = setupWorkflowTest(testWorkflow);
+        const adapter = setupDialogFlowTest(testDialogFlow);
 
         await adapter
             .send(beginMessage)
@@ -62,9 +62,9 @@ describe('WorkflowDialog', function () {
             .startTest();
     });
 
-    it('should restart workflow.', async function () {
+    it('should restart dialog flow.', async function () {
 
-        function *testWorkflow(context) {            
+        function *testDialogFlow(context) {            
             yield *context.sendActivity('bot responding.').execute();
         
             let message = yield *context.receiveActivity().then(activity => activity.text).execute();
@@ -79,7 +79,7 @@ describe('WorkflowDialog', function () {
         }
         
         // Initialize TestAdapter.
-        const adapter = setupWorkflowTest(testWorkflow);
+        const adapter = setupDialogFlowTest(testDialogFlow);
 
         await adapter
             .send(beginMessage)
@@ -97,7 +97,7 @@ describe('WorkflowDialog', function () {
 
         var refTime = undefined;
 
-        function *testWorkflow(context) {            
+        function *testDialogFlow(context) {            
             let time = context.currentUtcTime;
             let replayed = context.isReplaying;
 
@@ -117,7 +117,7 @@ describe('WorkflowDialog', function () {
         }
         
         // Initialize TestAdapter.
-        const adapter = setupWorkflowTest(testWorkflow);
+        const adapter = setupDialogFlowTest(testDialogFlow);
 
         await adapter
             .send(beginMessage)

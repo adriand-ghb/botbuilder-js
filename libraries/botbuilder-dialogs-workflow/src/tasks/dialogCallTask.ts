@@ -1,21 +1,21 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-import { SuspendWorkflowTask } from "./suspendWorkflowTask";
+import { SuspendDialogFlowTask } from "./suspendDialogFlowTask";
 import { Jsonify } from 'type-fest';
 import { DialogTurnResult, DialogContext } from 'botbuilder-dialogs';
 
 
 /**
- * Represents a task that shows a dialog and receives the dialog's result.
+ * Represents a task that runs a child dialog and receives the dialog's result.
  * 
  * @template R The task's execution result type
  * @template O The task's observable execution result type.
 */
-export class PromptTask<R, O = Jsonify<R>> extends SuspendWorkflowTask<R, O> {
+export class DialogCallTask<R, O = Jsonify<R>> extends SuspendDialogFlowTask<R, O> {
 
     /**
-     * Initializes a new PromptTask instance.
+     * Initializes a new DialogCallTask instance.
      * @param promptId The dialog ID of the prompt to invoke.
      * @param options (Optional) The prompt options.
      * @param projector The callback used to convert the deserialized result to its observable value
@@ -32,7 +32,7 @@ export class PromptTask<R, O = Jsonify<R>> extends SuspendWorkflowTask<R, O> {
      * @inheritdoc
      */
     override get kind(): string {
-        return 'Prompt';
+        return 'DialogCall';
     }
 
     /**
@@ -51,6 +51,9 @@ export class PromptTask<R, O = Jsonify<R>> extends SuspendWorkflowTask<R, O> {
         return dialogContext.beginDialog(this.id, this.options);
     }
 
+    /**
+     * @inheritdoc
+     */
     protected override clone(): this {
         return Object.assign(super.clone(), {
             promptId: this.promptId,

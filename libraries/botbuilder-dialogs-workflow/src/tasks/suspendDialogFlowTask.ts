@@ -1,26 +1,26 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-import { AbstractWorkflowTask} from './abstractWorkflowTask'
+import { AbstractDialogFlowTask} from './abstractDialogFlowTask'
 import { TaskResult } from './taskResult'
 import { Jsonify } from 'type-fest';
 import { DialogTurnResult, DialogContext } from 'botbuilder-dialogs';
 import { TurnContext } from 'botbuilder-core';
-import { WorkflowTask } from '../workflowTask';
+import { DialogFlowTask } from '../dialogFlowTask';
 
 function resumeDefault<R>(context: TurnContext, result: any): Promise<R> {
     return Promise.resolve<R>(result);
 }
 
 /**
- * Abstract task that will cause the current workflow to be suspend and resumed later.
+ * Abstract task that will cause the dialog flow to be suspend and resumed once its result becomes available.
  * @template R The task's execution result type
  * @template O The task's observable execution result type.
  */
-export abstract class SuspendWorkflowTask<R, O = Jsonify<R>> extends AbstractWorkflowTask<R, O> {
+export abstract class SuspendDialogFlowTask<R, O = Jsonify<R>> extends AbstractDialogFlowTask<R, O> {
 
     /**
-     * Initializes a new SuspendWorkflowTask instance.
+     * Initializes a new SuspendDialogFlowTask instance.
      * @param projector The callback used to convert the deserialized result to its observable value
      * @param resume The callback used to retrieve the task result.
     */
@@ -37,7 +37,7 @@ export abstract class SuspendWorkflowTask<R, O = Jsonify<R>> extends AbstractWor
      */
     override then<T>(
         continuation: (value: R, context: TurnContext) => T | Promise<T>
-    ): WorkflowTask<T, Jsonify<T>> {
+    ): DialogFlowTask<T, Jsonify<T>> {
 
         return Object.assign(super.clone(), {
             resume: (context, result) => this.resume(context, result)

@@ -11,12 +11,12 @@ import { ZodType, ZodTypeDef } from 'zod'
 import { TurnContext } from 'botbuilder-core'
 
 /**
- * This interface is used to configure the task's retry and replay behavior.
+ * Represents a task that can be executed in a dialog flow.
  * 
- * @template R The task's execution result type
+ * @template R The task's runtime execution result type
  * @template O The task's observable execution result type.
  */
-export interface WorkflowTask<R = any, O = Jsonify<R>> {
+export interface DialogFlowTask<R = any, O = Jsonify<R>> {
 
     /**
      * Gets the task's kind
@@ -61,7 +61,7 @@ export interface WorkflowTask<R = any, O = Jsonify<R>> {
      */
     then<T>(
         continuation: (value: R, context: TurnContext) => T
-    ) : WorkflowTask<T>;
+    ) : DialogFlowTask<T>;
 
     /**
      * Configures an asynchronous callback to run after the task is executed
@@ -72,7 +72,7 @@ export interface WorkflowTask<R = any, O = Jsonify<R>> {
      */
     then<T>(
         continuation: (value: R, context: TurnContext) => Promise<T>
-    ) : WorkflowTask<T>;
+    ) : DialogFlowTask<T>;
 
     /**
      * Configures the task's deserialized execution result conversion to its observable value.
@@ -84,11 +84,11 @@ export interface WorkflowTask<R = any, O = Jsonify<R>> {
      */
     project<T>(
         projector: (value: Jsonify<R>) => T
-    ) : WorkflowTask<R, T>;
+    ) : DialogFlowTask<R, T>;
 
     /**
-     * Executes the task.
-     * @returns The generator used to continue the workflow.
+     * Generator method used to yield the task's typed result.
+     * @returns The generator used to yield the task's result.
      */
-    execute() : Generator<WorkflowTask, O, O>;
+    result() : Generator<DialogFlowTask, O, O>;
 }

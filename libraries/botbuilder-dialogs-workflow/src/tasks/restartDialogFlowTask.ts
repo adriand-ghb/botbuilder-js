@@ -2,16 +2,16 @@
 // Licensed under the MIT License.
 
 import * as assert from 'node:assert';
-import { SuspendWorkflowTask } from "./suspendWorkflowTask";
+import { SuspendDialogFlowTask } from "./suspendDialogFlowTask";
 import { TaskResult } from './taskResult'
 import { DialogTurnResult, DialogContext } from 'botbuilder-dialogs';
 import { TurnContext } from 'botbuilder-core';
 
 
 /**
- * Represents a task that restarts the current workflow.
+ * Represents a task that restarts the dialog flow.
  */
-export class RestartWorkflowTask extends SuspendWorkflowTask<never, never> {
+export class RestartDialogFlowTask extends SuspendDialogFlowTask<never, never> {
 
     /**
      * Initializes a new RestartWorkflowTask instance.

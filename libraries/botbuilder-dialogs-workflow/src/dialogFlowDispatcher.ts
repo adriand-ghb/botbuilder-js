@@ -1,13 +1,13 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-import { WorkflowContext } from './workflowContext';
-import { WorkflowTask } from './workflowTask';
-import { AbstractWorkflowTask } from './tasks/abstractWorkflowTask';
+import { DialogFlowContext } from './dialogFlowContext';
+import { DialogFlowTask } from './dialogFlowTask';
+import { AbstractDialogFlowTask, defaultProjector } from './tasks/abstractDialogFlowTask';
 import { AsyncCallTask } from './tasks/asyncCallTask';
-import { PromptTask } from './tasks/promptTask';
-import { RestartWorkflowTask } from './tasks/restartWorkflowTask';
-import { SuspendWorkflowTask } from './tasks/suspendWorkflowTask';
+import { DialogCallTask } from './tasks/dialogCallTask';
+import { RestartDialogFlowTask } from './tasks/restartDialogFlowTask';
+import { SuspendDialogFlowTask } from './tasks/suspendDialogFlowTask';
 import { ReceiveActivityTask } from './tasks/receiveActivityTask';
 import { TaskResult } from './tasks/taskResult';
 import { createHash, randomUUID } from 'crypto';
@@ -24,20 +24,14 @@ import { Activity, ResourceResponse, TokenResponse, TurnContext } from 'botbuild
 import { 
     convertToJson,
     convertFromJson,
-    TaskResultSettings,
-    TaskResultConverter
  } from './tasks/replayPolicy';
-import { WorkflowError } from './workflowError';
+import { DialogFlowError } from './dialogFlowError';
 import { Jsonify, JsonValue } from 'type-fest';
-
-function identity<T>(value: T): T {
-    return value;
-}
 
 /**
  * Workflow dispatcher implementation.
  */
-export class WorkflowDispatcher<O extends object, R = any> implements WorkflowContext<O> {
+export class WorkflowDispatcher<O extends object, R = any> implements DialogFlowContext<O> {
     private readonly state: WorkflowDialogState<O>;
     private nextTask: number;
 
@@ -67,7 +61,7 @@ export class WorkflowDispatcher<O extends object, R = any> implements WorkflowCo
     /**
      * @inheritdoc
      */
-    public get workflowId(): string {
+    public get dialogId(): string {
         return this.dc.activeDialog!.id
     }
 
@@ -129,8 +123,8 @@ export class WorkflowDispatcher<O extends object, R = any> implements WorkflowCo
      */
     public call<T>(
         task: (context: TurnContext) => Promise<T>
-    ): WorkflowTask<T> {
-        return new AsyncCallTask<T>(task, identity);
+    ): DialogFlowTask<T> {
+        return new AsyncCallTask<T>(task, defaultProjector);
     }
 
     /**
@@ -139,11 +133,11 @@ export class WorkflowDispatcher<O extends object, R = any> implements WorkflowCo
     public callAsUser<T>(
         oauthDialogId: string, 
         task: (token: string, context: TurnContext) => Promise<T>
-    ): WorkflowTask<T> {
-        return this.prompt<TokenResponse|undefined>(oauthDialogId)
+    ): DialogFlowTask<T> {
+        return this.callDialog<TokenResponse|undefined>(oauthDialogId)
             .then<T>((tokenResponse, context) => {
                 if (!tokenResponse || !tokenResponse.token) {
-                    throw new WorkflowError("Sign-in failed.");
+                    throw new DialogFlowError("Sign-in failed.");
                 }
                 return task(tokenResponse.token, context);
             });
@@ -152,11 +146,11 @@ export class WorkflowDispatcher<O extends object, R = any> implements WorkflowCo
     /**
      * @inheritdoc
      */
-    public prompt<T = any>(
+    public callDialog<T = any>(
         dialogId: string, 
         options?: object
-    ): WorkflowTask<T> {
-        return new PromptTask<T>(dialogId, options, identity);
+    ): DialogFlowTask<T> {
+        return new DialogCallTask<T>(dialogId, options, defaultProjector);
     }
 
     /**
@@ -166,7 +160,7 @@ export class WorkflowDispatcher<O extends object, R = any> implements WorkflowCo
         activityOrText: string | Partial<Activity>,
         speak?: string,
         inputHint?: string,
-    ): WorkflowTask<ResourceResponse|undefined> {        
+    ): DialogFlowTask<ResourceResponse|undefined> {        
         return this.call(async (context: TurnContext) => {
             return await context.sendActivity(activityOrText, speak, inputHint);
         });
@@ -175,29 +169,61 @@ export class WorkflowDispatcher<O extends object, R = any> implements WorkflowCo
     /**
      * @inheritdoc
      */
-    public receiveActivity(): WorkflowTask<Activity> {
+    public receiveActivity(): DialogFlowTask<Activity> {
         return new ReceiveActivityTask();
     }
 
     /**
      * @inheritdoc
      */
-    public restart(options?: O): WorkflowTask<never> {
-        return new RestartWorkflowTask(options);
+    public restart(options?: O): DialogFlowTask<never> {
+        return new RestartDialogFlowTask(options);
     }
 
     /**
      * @inheritdoc
      */
-    public bind<T extends (...args: any[]) => any, P extends JsonValue, O>(
-        func: T,
-        options?: TaskResultSettings<ReturnType<T>, P, O> | TaskResultConverter<Jsonify<ReturnType<T>>, O>
-    ): (...args: Parameters<T>) => O {        
+    public bind<T extends (...args: any[]) => any>(
+        func: T
+    ): (...args: Parameters<T>) => Jsonify<ReturnType<T>> {
+        return (...args: Parameters<T>) : Jsonify<ReturnType<T>> => {
+            const callId = this.getCallId();
 
-        return ((typeof options === 'undefined') || (typeof options === 'function')) ? this.bindImpl(func, {
-            toJson: convertToJson<ReturnType<T>>,
-            fromJson: options ?? convertFromJson<Jsonify<ReturnType<T>>>
-        }) : this.bindImpl(func, options); 
+            if (this.nextTask == this.state.history.length) {
+                assert.ok(!this.isReplaying);
+
+                try {
+                    this.state.history.push({
+                        kind: "boundFunc",
+                        hashedId: callId,
+                        result: { 
+                            success: true,  
+                            value: convertToJson(func(...args)) 
+                        }
+                    });
+                } catch (error) {
+                    this.state.history.push({
+                        kind: "boundFunc",
+                        hashedId: callId,
+                        result: { 
+                            success: false,
+                            error: util.inspect(error, {depth: null, showHidden: true})
+                        }
+                    });
+                }
+            }
+
+            const entry = this.state.history[this.nextTask++];
+    
+            assert.equal("boundFunc", entry.kind);
+            assert.equal(callId, entry.hashedId);
+    
+            if (entry.result.success == true) {
+                return entry.result.value;
+            }
+    
+            throw new DialogFlowError(entry.result.error)
+        }
     }
 
     /**
@@ -208,7 +234,7 @@ export class WorkflowDispatcher<O extends object, R = any> implements WorkflowCo
      * @returns A promise that resolves to the turn result.
      */
     public async run(
-        workflow: (context: WorkflowContext<O>) => Generator<WorkflowTask, R>,
+        workflow: (context: DialogFlowContext<O>) => Generator<DialogFlowTask, R>,
         reason: DialogReason,
         resumeResult?: any
     ): Promise<DialogTurnResult> {
@@ -224,7 +250,7 @@ export class WorkflowDispatcher<O extends object, R = any> implements WorkflowCo
         // Resume from the last suspension, unless the workflow is run for the first time
         if (reason !== DialogReason.beginCalled) {
 
-            assert.ok(!it.done && it.value instanceof SuspendWorkflowTask);
+            assert.ok(!it.done && it.value instanceof SuspendDialogFlowTask);
             assert.equal(it.value.kind, this.state.resumeState?.kind);
             assert.equal(this.getHashOf(it.value.id), this.state.resumeState?.hashedId);
 
@@ -251,7 +277,7 @@ export class WorkflowDispatcher<O extends object, R = any> implements WorkflowCo
         // If the workflow is being suspended, record the suspension point
         if (it.done === false) {
 
-            assert.ok(it.value instanceof SuspendWorkflowTask);
+            assert.ok(it.value instanceof SuspendDialogFlowTask);
 
             this.state.resumeState = {
                 hashedId: this.getHashOf(it.value.id),
@@ -282,10 +308,10 @@ export class WorkflowDispatcher<O extends object, R = any> implements WorkflowCo
      * @returns The iterator used to continue the workflow.
      */
     private record(
-        generator: Generator<WorkflowTask, R>, 
-        task: AbstractWorkflowTask<any>,
+        generator: Generator<DialogFlowTask, R>, 
+        task: AbstractDialogFlowTask<any>,
         result: TaskResult
-    ) : IteratorResult<WorkflowTask, R> {
+    ) : IteratorResult<DialogFlowTask, R> {
 
         assert.ok(!this.isReplaying);
 
@@ -306,14 +332,14 @@ export class WorkflowDispatcher<O extends object, R = any> implements WorkflowCo
      * @returns The iterator used to continue the workflow.
      */
     private replayNext(
-        generator: Generator<WorkflowTask, R>, 
-        task: WorkflowTask
-    ) : IteratorResult<WorkflowTask, R> {
+        generator: Generator<DialogFlowTask, R>, 
+        task: DialogFlowTask
+    ) : IteratorResult<DialogFlowTask, R> {
 
         assert.ok(this.nextTask < this.state.history.length);
         const entry = this.state.history[this.nextTask++];
 
-        assert.ok(task instanceof AbstractWorkflowTask);
+        assert.ok(task instanceof AbstractDialogFlowTask);
         assert.equal(task.kind, entry.kind);
         assert.equal(this.getHashOf(task.id), entry.hashedId);
 
@@ -330,52 +356,7 @@ export class WorkflowDispatcher<O extends object, R = any> implements WorkflowCo
 
         return "any";
      }
- 
-    private bindImpl<T extends (...args: any[]) => any, P extends JsonValue, O>(
-        func: T,
-        replaySettings: TaskResultSettings<ReturnType<T>, P, O>
-    ): (...args: Parameters<T>) => O {        
-
-        return (...args: Parameters<T>) : O => {
-            const callId = this.getCallId();
-
-            if (this.nextTask == this.state.history.length) {
-                assert.ok(!this.isReplaying);
-
-                try {
-                    this.state.history.push({
-                        kind: "boundFunc",
-                        hashedId: callId,
-                        result: { 
-                            success: true,  
-                            value: replaySettings.toJson(func(...args)) 
-                        }
-                    });
-                } catch (error) {
-                    this.state.history.push({
-                        kind: "boundFunc",
-                        hashedId: callId,
-                        result: { 
-                            success: false,
-                            error: util.inspect(error, {depth: null, showHidden: true})
-                        }
-                    });
-                }
-            }
-
-            const entry = this.state.history[this.nextTask++];
-    
-            assert.equal("boundFunc", entry.kind);
-            assert.equal(callId, entry.hashedId);
-    
-            if (entry.result.success == true) {
-                return replaySettings.fromJson(entry.result.value as P);
-            }
-    
-            throw new WorkflowError(entry.result.error)
-        }
-    }
-}
+ }
 
 /**
  * Represents a workflow execution history entry.

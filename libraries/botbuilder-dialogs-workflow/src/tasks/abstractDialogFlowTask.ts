@@ -18,17 +18,30 @@ import {
     convertToJson,
 } from './replayPolicy'
 
-import { WorkflowError } from '../workflowError';
-import { WorkflowTask } from '../workflowTask';
+import { DialogFlowError } from '../dialogFlowError';
+import { DialogFlowTask } from '../dialogFlowTask';
 import { TurnContext } from 'botbuilder-core';
+import { error } from 'console';
 
 /**
- * Abstract task that can be executed in a workflow.
+ * The default projector function used to convert the deserialized result to its observable value.
+ * This function simply returns the passed-in value without any modifications.
+ * 
+ * @param value The value to convert.
+ * @template T The type of the value to convert.
+ * @returns The passed-in value.
+ */
+export function defaultProjector<T>(value: T): T {
+    return value;
+}
+
+/**
+ * Abstract task that can be executed in a fluent dialog flow.
  *
  * @template R The task's execution result type
  * @template O The task's observable execution result type.
  */
-export abstract class AbstractWorkflowTask<R, O = Jsonify<R>> implements WorkflowTask<R, O> {
+export abstract class AbstractDialogFlowTask<R, O = Jsonify<R>> implements DialogFlowTask<R, O> {
 
     /**
      * Initializes a new AbstractWorkflowTask instance.
@@ -58,7 +71,8 @@ export abstract class AbstractWorkflowTask<R, O = Jsonify<R>> implements Workflo
     protected get defaultRetrySettings(): RetrySettings {
         return {
             maxAttempts: 5, 
-            retryDelay: exponentialRetry(50, 1000)
+            retryDelay: exponentialRetry(50, 1000),
+            errorFilter: (error) => !(error instanceof DialogFlowError)
         };
     }
 
@@ -87,14 +101,14 @@ export abstract class AbstractWorkflowTask<R, O = Jsonify<R>> implements Workflo
      */
     public abstract then<T>(
         continuation: (value: R, context: TurnContext) => T | Promise<T>
-    ) : WorkflowTask<T, Jsonify<T>>;
+    ) : DialogFlowTask<T>;
 
     /**
      * @inheritdoc
      */
     public project<T>(
         projector: (value: Jsonify<R>) => T
-    ) : WorkflowTask<R, T> {
+    ) : DialogFlowTask<R, T> {
         return Object.assign(this.clone(), {
             projector: projector
         });
@@ -103,7 +117,7 @@ export abstract class AbstractWorkflowTask<R, O = Jsonify<R>> implements Workflo
     /**
      * @inheritdoc
      */
-    public *execute() : Generator<WorkflowTask, O, O> {
+    public *result() : Generator<DialogFlowTask, O, O> {
         let result: O = yield this;
         return result;
     }
@@ -115,13 +129,13 @@ export abstract class AbstractWorkflowTask<R, O = Jsonify<R>> implements Workflo
      * @returns The iterator used to continue the workflow.
      */
     public replay<WorkflowResultType>(
-        generator: Generator<WorkflowTask, WorkflowResultType>, 
+        generator: Generator<DialogFlowTask, WorkflowResultType>, 
         result: TaskResult<R>
-    ) : IteratorResult<WorkflowTask, WorkflowResultType> {
+    ) : IteratorResult<DialogFlowTask, WorkflowResultType> {
 
         return (result.success === true) ?
             generator.next(this.projector(result.value)) :
-            generator.throw(new WorkflowError(result.error));
+            generator.throw(new DialogFlowError(result.error));
     }
     
     /**
