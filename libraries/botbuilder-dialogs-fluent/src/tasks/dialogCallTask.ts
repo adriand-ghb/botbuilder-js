@@ -48,7 +48,7 @@ export class DialogCallTask<R, O = Jsonify<R>> extends SuspendDialogFlowTask<R, 
     public override onSuspend(
         dialogContext: DialogContext
     ): Promise<DialogTurnResult> {
-        return dialogContext.beginDialog(this.id, this.options);
+        return dialogContext.beginDialog(this.promptId, this.options);
     }
 
     /**

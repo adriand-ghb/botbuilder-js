@@ -27,6 +27,7 @@ import {
  } from './tasks/replayPolicy';
 import { DialogFlowError } from './dialogFlowError';
 import { Jsonify, JsonValue } from 'type-fest';
+import { DialogFlowBoundCallable } from './dialogFlowBoundCallable';
 
 /**
  * Workflow dispatcher implementation.
@@ -135,7 +136,7 @@ export class WorkflowDispatcher<O extends object, R = any> implements DialogFlow
         task: (token: string, context: TurnContext) => Promise<T>
     ): DialogFlowTask<T> {
         return this.callDialog<TokenResponse|undefined>(oauthDialogId)
-            .then<T>((tokenResponse, context) => {
+            .then((tokenResponse, context) => {
                 if (!tokenResponse || !tokenResponse.token) {
                     throw new DialogFlowError("Sign-in failed.");
                 }
@@ -161,8 +162,8 @@ export class WorkflowDispatcher<O extends object, R = any> implements DialogFlow
         speak?: string,
         inputHint?: string,
     ): DialogFlowTask<ResourceResponse|undefined> {        
-        return this.call(async (context: TurnContext) => {
-            return await context.sendActivity(activityOrText, speak, inputHint);
+        return this.call((context: TurnContext) => {
+            return context.sendActivity(activityOrText, speak, inputHint);
         });
     }
 
@@ -185,15 +186,17 @@ export class WorkflowDispatcher<O extends object, R = any> implements DialogFlow
      */
     public bind<T extends (...args: any[]) => any>(
         func: T
-    ): (...args: Parameters<T>) => Jsonify<ReturnType<T>> {
-        return (...args: Parameters<T>) : Jsonify<ReturnType<T>> => {
-            const callId = this.getCallId();
+    ): DialogFlowBoundCallable<Parameters<T>, Jsonify<ReturnType<T>>> {
 
-            if (this.nextTask == this.state.history.length) {
-                assert.ok(!this.isReplaying);
+        const context = this;
+
+        function bound(...args: Parameters<T>) : Jsonify<ReturnType<T>> {
+            const callId = context.getHashOf(`${func.name}(${args.toString()})`);
+            if (context.nextTask == context.state.history.length) {
+                assert.ok(!context.isReplaying);
 
                 try {
-                    this.state.history.push({
+                    context.state.history.push({
                         kind: "boundFunc",
                         hashedId: callId,
                         result: { 
@@ -202,7 +205,7 @@ export class WorkflowDispatcher<O extends object, R = any> implements DialogFlow
                         }
                     });
                 } catch (error) {
-                    this.state.history.push({
+                    context.state.history.push({
                         kind: "boundFunc",
                         hashedId: callId,
                         result: { 
@@ -213,7 +216,7 @@ export class WorkflowDispatcher<O extends object, R = any> implements DialogFlow
                 }
             }
 
-            const entry = this.state.history[this.nextTask++];
+            const entry = context.state.history[context.nextTask++];
     
             assert.equal("boundFunc", entry.kind);
             assert.equal(callId, entry.hashedId);
@@ -224,6 +227,12 @@ export class WorkflowDispatcher<O extends object, R = any> implements DialogFlow
     
             throw new DialogFlowError(entry.result.error)
         }
+
+        bound.project = <O>(projector: (value: Jsonify<ReturnType<T>>) => O) => {
+            return (...args: Parameters<T>) : O => projector(bound(...args));
+        }
+
+        return bound;
     }
 
     /**
@@ -339,23 +348,12 @@ export class WorkflowDispatcher<O extends object, R = any> implements DialogFlow
         assert.ok(this.nextTask < this.state.history.length);
         const entry = this.state.history[this.nextTask++];
 
-        assert.ok(task instanceof AbstractDialogFlowTask);
+        assert.ok(task instanceof AbstractDialogFlowTask, `Expected task to be an instance of AbstractDialogFlowTask`);
         assert.equal(task.kind, entry.kind);
         assert.equal(this.getHashOf(task.id), entry.hashedId);
 
         return task.replay(generator, entry.result);
     }
-
-    private getCallId(): string {
-        let stack: any = {};
-        Error.captureStackTrace(stack, this.run); 
-
-        if (stack.stack) {
-            return this.getHashOf(stack.stack);
-        }
-
-        return "any";
-     }
  }
 
 /**

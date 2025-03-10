@@ -6,7 +6,7 @@
  * Licensed under the MIT License.
  */
 
-export {DialogFlowError as WorkflowError} from './dialogFlowError';
-export {DialogFlowTask as WorkflowTask } from './dialogFlowTask';
-export {DialogFlowContext as WorkflowContext} from './dialogFlowContext';
-export {FluentDialog as WorkflowDialog} from './fluentDialog';
+export {DialogFlowError} from './dialogFlowError';
+export {DialogFlowTask } from './dialogFlowTask';
+export {DialogFlowContext} from './dialogFlowContext';
+export {FluentDialog} from './fluentDialog';

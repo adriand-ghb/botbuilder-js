@@ -53,17 +53,6 @@ export interface DialogFlowTask<R = any, O = Jsonify<R>> {
     configureRetry(policy: RetryPolicy) : this;
 
     /**
-     * Configures a callback to run after the task is executed
-     * 
-     * @template T The type of result returned by the continuation callback
-     * @param continuation The continuation callback
-     * @returns A new task instance.
-     */
-    then<T>(
-        continuation: (value: R, context: TurnContext) => T
-    ) : DialogFlowTask<T>;
-
-    /**
      * Configures an asynchronous callback to run after the task is executed
      * 
      * @template T The type of result returned by the continuation callback
@@ -71,7 +60,7 @@ export interface DialogFlowTask<R = any, O = Jsonify<R>> {
      * @returns A new task instance.
      */
     then<T>(
-        continuation: (value: R, context: TurnContext) => Promise<T>
+        continuation: (value: R, context: TurnContext) => T | Promise<T>
     ) : DialogFlowTask<T>;
 
     /**

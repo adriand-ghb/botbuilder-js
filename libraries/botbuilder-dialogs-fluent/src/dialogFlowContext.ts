@@ -100,7 +100,7 @@ export interface DialogFlowContext<O extends object = {}>  {
      * @remarks
      * For example:
      * ```JavaScript
-     * yield *context.sendActivity(`Hello World`).result();
+     * yield context.sendActivity(`Hello World`);
      * ```
      *
      * **See also**

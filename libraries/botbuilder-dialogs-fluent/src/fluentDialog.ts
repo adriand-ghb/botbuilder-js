@@ -34,7 +34,7 @@ import {
 export class FluentDialog<O extends object = {}, T = any> extends Dialog<O> {
 
     /**
-     * Creates a new workflow dialog.
+     * Creates a new FluentDialog instance.
      *
      * @param dialogId Unique ID of the dialog within the component or set its being added to.
      * @param dialogFlow The workflow generator function.
@@ -44,14 +44,7 @@ export class FluentDialog<O extends object = {}, T = any> extends Dialog<O> {
     }
 
     /**
-     * Called when the workflow is started and pushed onto the dialog stack.
-     *
-     * @param dc The [DialogContext](xref:botbuilder-dialogs.DialogContext) for the current turn of conversation.
-     * @param options Optional, initial information to pass to the [Dialog](xref:botbuilder-dialogs.Dialog).
-     * @returns A Promise representing the asynchronous operation.
-     * @remarks
-     * If the task is successful, the result indicates whether the [Dialog](xref:botbuilder-dialogs.Dialog) is still
-     * active after the turn has been processed by the dialog.
+     * @inheritdoc
      */
     public override beginDialog(dc: DialogContext, options?: O): Promise<DialogTurnResult> {
         const state: WorkflowDialogState<O> = dc.activeDialog!.state as WorkflowDialogState<O>;
@@ -62,40 +55,21 @@ export class FluentDialog<O extends object = {}, T = any> extends Dialog<O> {
     }
 
     /**
-     * Called when the workflow is _continued_, where it is the active dialog and the
-     * user replies with a new [Activity](xref:botframework-schema.Activity).
-     *
-     * @param dc The [DialogContext](xref:botbuilder-dialogs.DialogContext) for the current turn of conversation.
-     * @returns A Promise representing the asynchronous operation.
-     * @remarks
-     * If the task is successful, the result indicates whether the dialog is still
-     * active after the turn has been processed by the dialog. The result may also contain a
-     * return value.
+     * @inheritdoc
      */
     public override continueDialog(dc: DialogContext): Promise<DialogTurnResult> {
-        // Don't do anything for non-message activities
-        if (dc.context.activity.type !== ActivityTypes.Message) {
-            return Promise.resolve(Dialog.EndOfTurn);
-        }
-
-        return this.resumeDialog(dc, DialogReason.continueCalled, dc.context.activity.text);
+        return this.resumeDialog(dc, DialogReason.continueCalled);
     }
 
     /**
-     * Called when a child dialog completed its turn, returning control to this workflow.
-     *
-     * @param dc The [DialogContext](xref:botbuilder-dialogs.DialogContext) for the current turn of the conversation.
-     * @param reason [Reason](xref:botbuilder-dialogs.DialogReason) why the dialog resumed.
-     * @param result Optional, value returned from the dialog that was called. The type
-     * of the value returned is dependent on the child dialog.
-     * @returns A Promise representing the asynchronous operation.
+     * @inheritdoc
      */
     public override resumeDialog(dc: DialogContext, reason: DialogReason, result?: any): Promise<DialogTurnResult> {
         return this.runWorkflow(dc, reason, result);
     }
 
     /**
-     * Executes the workflow up to the next task 
+     * Executes the dialog flow up to the next task 
      *
      * @param dc The [DialogContext](xref:botbuilder-dialogs.DialogContext) for the current turn of conversation.
      * @param reason The [Reason](xref:botbuilder-dialogs.DialogReason) the workflow is being executed.

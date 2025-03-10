@@ -1,7 +1,7 @@
 {
-  "name": "botbuilder-dialogs-workflow",
+  "name": "botbuilder-dialogs-fluent",
   "author": "Microsoft Corp.",
-  "description": "Declarative library for the Microsoft BotBuilder dialog system.",
+  "description": "Fluent execution flow library for the Microsoft BotBuilder dialog system.",
   "version": "4.1.6",
   "preview": true,
   "license": "MIT",
@@ -36,9 +36,8 @@
     "type-fest": "3.13.1"
   },
   "scripts": {
-    "where": "where mocha",
     "build": "tsc -b",
-    "build-docs": "typedoc --theme markdown --entryPoint botbuilder-dialogs-workflow --excludePrivate --includeDeclarations --ignoreCompilerErrors --module amd --out ..\\..\\doc\\botbuilder-dialogs .\\lib\\index.d.ts --hideGenerator --name \"Bot Builder SDK - Dialogs\" --readme none",
+    "build-docs": "typedoc --theme markdown --entryPoint botbuilder-dialogs-fluent --excludePrivate --includeDeclarations --ignoreCompilerErrors --module amd --out ..\\..\\doc\\botbuilder-dialogs .\\lib\\index.d.ts --hideGenerator --name \"Bot Builder SDK - Dialogs\" --readme none",
     "clean": "rimraf _ts3.4 lib tsconfig.tsbuildinfo",
     "depcheck": "depcheck --config ../../.depcheckrc --ignores botbuilder-ai,botbuilder-dialogs-adaptive",
     "lint": "eslint . --config ../../eslint.config.cjs",
