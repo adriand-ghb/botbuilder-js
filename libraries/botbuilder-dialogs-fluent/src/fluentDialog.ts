@@ -17,16 +17,18 @@ import {
 
 
 /**
-* FluentDialog uses event sourcing to arbitrarily complex user interactions in a seemingly uninterrupted execution flow . 
-* Behind the scenes, the yield operator in the dialog flow function yields control of the execution thread back to a 
-* dialog flow dispatcher. The dispatcher then commits any new actions that the dialog flow function scheduled (such as 
-* starting a child dialog, reveiving an activity or making an async call) to storage. The transparent commit action updates 
-* the execution history of the dialog flowby appending all new events into storage, much like an append-only log. 
-* At this point, the dialog ends its turn and when the dialog is resumed, the dispatcher re-executes the entire function
-* from the start to rebuild the local state. During the replay, if the code tries to begin a child dialog (or do any  async work), 
-* the dispatcher consults the execution history, replays that result and the function code continues to run. 
-* The replay continues until the function code is finished or until it yields a new suspension task.
-*
+ * Similar with a durable function, a FluentDialog uses event sourcing to enable arbitrarily complex user 
+ * interactions in a seemingly uninterrupted execution flow. 
+ * Behind the scenes, the yield operator in the dialog flow function yields control of the execution thread 
+ * back to a dialog flow dispatcher. The dispatcher then commits any new actions that the dialog flow function 
+ * scheduled (such as starting a child dialog, receiving an activity or making an async call) to storage.
+ * The transparent commit action updates the execution history of the dialog flow by appending all new events 
+ * into the dialog state, much like an append-only log. 
+ * Once the history is updated, the dialog ends its turn and, when it is later resumed, the dispatcher re-executes
+ * the entire function from the start to rebuild the local state. 
+ * During the replay, if the code tries to begin a child dialog (or do any  async work), the dispatcher consults
+ * the execution history, replays that result and the function code continues to run. 
+ * The replay continues until the function code is finished or until it yields a new suspension task.
  * @param O (Optional) type of options passed to the fluent dialog in the call to `DialogContext.beginDialog()`.
  * @param T (Optional) type of value returned by the dialog flow function.
  */

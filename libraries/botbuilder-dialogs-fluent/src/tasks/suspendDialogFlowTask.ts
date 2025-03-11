@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-import { AbstractDialogFlowTask, TaskResult} from './abstractDialogFlowTask';
+import { AbstractDialogFlowTask, defaultProjector, TaskResult} from './abstractDialogFlowTask';
 import { DialogFlowTask } from '../dialogFlowTask';
 import { Jsonify } from 'type-fest';
 import { DialogTurnResult, DialogContext } from 'botbuilder-dialogs';
@@ -38,9 +38,10 @@ export abstract class SuspendDialogFlowTask<R, O = Jsonify<R>> extends AbstractD
         continuation: (value: R, context: TurnContext) => T | Promise<T>
     ): DialogFlowTask<T, Jsonify<T>> {
 
-        return Object.assign(super.clone(), {
-            resume: (context, result) => this.resume(context, result)
-                .then(prev => continuation(prev, context))
+        return Object.assign(
+            this.project(defaultProjector) as SuspendDialogFlowTask<R>, {
+                resume: (context, result) => this.resume(context, result)
+                    .then(prev => continuation(prev, context))
         });        
     }
 
