@@ -2,38 +2,23 @@
 // Licensed under the MIT License.
 
 import util from 'util';
-import { Jsonify } from 'type-fest';
 
-import {TaskResult} from './taskResult'
+import { 
+    Jsonify, 
+    JsonValue 
+} from 'type-fest';
 
 import {
+    DialogFlowTask,
+    DialogFlowError,
     RetryPolicy, 
     RetrySettings, 
     noRetry, 
     exponentialRetry, 
     retryPolicy
-} from './retryPolicy'
+} from '../.'
 
-import {
-    convertToJson,
-} from './replayPolicy'
-
-import { DialogFlowError } from '../dialogFlowError';
-import { DialogFlowTask } from '../dialogFlowTask';
 import { TurnContext } from 'botbuilder-core';
-import { error } from 'console';
-
-/**
- * The default projector function used to convert the deserialized result to its observable value.
- * This function simply returns the passed-in value without any modifications.
- * 
- * @param value The value to convert.
- * @template T The type of the value to convert.
- * @returns The passed-in value.
- */
-export function defaultProjector<T>(value: T): T {
-    return value;
-}
 
 /**
  * Abstract task that can be executed in a fluent dialog flow.
@@ -147,30 +132,6 @@ export abstract class AbstractDialogFlowTask<R, O = Jsonify<R>> implements Dialo
     }
 
     /**
-     * Converts the task execution result to a TaskResult.
-     * @param value The task's execution result.
-     * @returns The TaskResult.
-     */
-    protected succeeded(value: R): TaskResult<R> {
-        return {
-            success: true,
-            value: convertToJson(value),
-        };
-    }
-
-    /**
-     * Converts a task execution failure to a TaskResult.
-     * @param error The error that occurred during task execution.
-     * @returns The TaskResult.
-     */
-    protected failed(error: any): TaskResult<R> {
-        return {
-            success: false,
-            error: util.inspect(error, {depth: null, showHidden: true})
-        };
-    }
-
-    /**
      * Called to determine whether to retry the task.
      * @param error The error that occurred during task execution
      * @param attempt The current retry attempt
@@ -212,9 +173,69 @@ export abstract class AbstractDialogFlowTask<R, O = Jsonify<R>> implements Dialo
     ) : Promise<TaskResult<R>> {
 
         return task(...args)
-            .then(result => this.succeeded(result))
-            .catch(error => this.failed(error));
+            .then(taskSucceeded)
+            .catch(taskFailed);
     }
 }
 
+
+/**
+ * Represents the outcome of a task's execution.
+ * @template T (Optional) The task's runtime execution result type
+ */
+export type TaskResult<T = any> = {
+  success: true, 
+  value?: Jsonify<T>,
+} | {
+  success: false, 
+  error: string
+};
+
+/**
+ * Converts the task execution result to a TaskResult.
+ * @template T The task's runtime execution result type.
+ * @param value The task's execution result.
+ * @returns The TaskResult.
+ */
+export function taskSucceeded<T>(value: T): TaskResult<T> {
+  return {
+    success: true,
+    value: convertToJson(value)
+  };
+}
+
+/**
+ * Converts a task execution failure to a TaskResult.
+ * @template T The task's runtime execution result type.
+ * @param error The error that occurred during task execution.
+ * @returns The TaskResult.
+ */
+export function taskFailed<T>(error: any): TaskResult<T> {
+  return {
+    success: false,
+    error: util.inspect(error, {depth: null, showHidden: true})
+  };
+}
+
+/**
+ * Default value to json converter
+ * @template T The type of value to convert.
+ * @param value The value to convert.
+ * @returns The converted value.
+ */
+export function convertToJson<T>(value: T): Jsonify<T> {
+  return JSON.parse(JSON.stringify(value)) as Jsonify<T>;
+}
+
+/**
+ * The default projector function used to convert the deserialized result to its observable value.
+ * This function simply returns the passed-in value without any modifications.
+ * 
+ * @param value The value to convert.
+ * @template T The type of the value to convert.
+ * @returns The passed-in value.
+ */
+export function defaultProjector<T extends JsonValue>(value: T): T {
+    return value;
+}
 

@@ -1,11 +1,15 @@
-import { Jsonify } from "type-fest";
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+import { JsonValue } from "type-fest";
 
 
 /**
  * Interface for a callable that is bound to a dialog flow context.
- * @template T The type of the function to be called.
+ * @template A The parameter types of the bound function.
+ * @template R The return type of the bound function.
  */
-export interface DialogFlowBoundCallable<A extends any[], R> {
+export interface DialogFlowBoundCallable<A extends any[], R extends JsonValue> {
 
     /**
      * Invokes the bound function with the given arguments.

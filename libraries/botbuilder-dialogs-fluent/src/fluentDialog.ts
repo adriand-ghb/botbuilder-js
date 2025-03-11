@@ -1,19 +1,18 @@
 ﻿import { 
-    ActivityTypes, 
-} from 'botbuilder-core';
-
-import { 
     Dialog, 
     DialogContext,
     DialogReason, 
     DialogTurnResult,
 } from 'botbuilder-dialogs'
 
-import { DialogFlowContext } from './dialogFlowContext'
-import { DialogFlowTask } from './dialogFlowTask';
 import { 
-    WorkflowDispatcher,
-    WorkflowDialogState
+    DialogFlowContext,
+    DialogFlowTask
+} from './'
+
+import { 
+    DialogFlowDispatcher,
+    FluentDialogState
  } from './dialogFlowDispatcher';
 
 
@@ -39,7 +38,10 @@ export class FluentDialog<O extends object = {}, T = any> extends Dialog<O> {
      * @param dialogId Unique ID of the dialog within the component or set its being added to.
      * @param dialogFlow The workflow generator function.
      */
-    constructor(dialogId: string, private readonly dialogFlow: (context: DialogFlowContext<O>) => Generator<DialogFlowTask, T>) {
+    constructor(
+        dialogId: string, 
+        private readonly dialogFlow: (context: DialogFlowContext<O>) => Generator<DialogFlowTask, T>
+    ) {
         super(dialogId);
     }
 
@@ -47,7 +49,7 @@ export class FluentDialog<O extends object = {}, T = any> extends Dialog<O> {
      * @inheritdoc
      */
     public override beginDialog(dc: DialogContext, options?: O): Promise<DialogTurnResult> {
-        const state: WorkflowDialogState<O> = dc.activeDialog!.state as WorkflowDialogState<O>;
+        const state: FluentDialogState<O> = dc.activeDialog!.state as FluentDialogState<O>;
         state.options = options || ({} as O);
         state.history = [];
 
@@ -77,7 +79,7 @@ export class FluentDialog<O extends object = {}, T = any> extends Dialog<O> {
      * @returns A Promise that represents the work queued to execute.
      */
     protected runWorkflow(dc: DialogContext, reason: DialogReason, result?: any): Promise<DialogTurnResult> {
-        const context = new WorkflowDispatcher<O,T>(dc);
-        return context.run(this.dialogFlow, reason, result);
+        const dispatcher = new DialogFlowDispatcher<O,T>(dc);
+        return dispatcher.run(this.dialogFlow, reason, result);
     }
 }

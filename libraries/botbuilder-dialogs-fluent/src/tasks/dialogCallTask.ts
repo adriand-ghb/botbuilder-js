@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-import { SuspendDialogFlowTask } from "./suspendDialogFlowTask";
+import { SuspendDialogFlowTask } from './suspendDialogFlowTask';
 import { Jsonify } from 'type-fest';
 import { DialogTurnResult, DialogContext } from 'botbuilder-dialogs';
 

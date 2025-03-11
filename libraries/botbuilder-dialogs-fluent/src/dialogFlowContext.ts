@@ -1,9 +1,10 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+import { DialogFlowTask } from './';
 import { Activity, ResourceResponse, TurnContext } from 'botbuilder-core';
-import { DialogFlowTask } from './dialogFlowTask';
-import { Jsonify, JsonValue } from 'type-fest';
+import { Choice, DialogTurnResult, PromptOptions } from 'botbuilder-dialogs';
+import { Jsonify } from 'type-fest';
 
 
 
@@ -89,6 +90,66 @@ export interface DialogFlowContext<O extends object = {}>  {
     ): DialogFlowTask<T>; 
 
     /**
+     * Helper function to simplify formatting the options for calling a prompt dialog.
+     *
+     * @param dialogId ID of the prompt dialog to start.
+     * @param promptOrOptions The text of the initial prompt to send the user,
+     *      the activity to send as the initial prompt, or
+     *      the object with which to format the prompt dialog.
+     * @param choices Optional. Array of choices for the user to choose from,
+     *      for use with a [ChoicePrompt](xref:botbuilder-dialogs.ChoicePrompt).
+     *
+     * @returns The task instance which will yield the prompt result.
+     * 
+     * @remarks
+     * This helper method formats the object to use as the `options` parameter, and then calls
+     * callDialog to start the specified prompt dialog.
+     *
+     * ```JavaScript
+     * return yield context.prompt<boolean>('confirmPrompt', `Are you sure you'd like to quit?`);
+     * ```
+     * 
+     * **See also**
+     *
+     * - [prompt](xref:botbuilder-dialogs.DialogContext.prompt)
+     */
+    prompt<T>(
+        dialogId: string,
+        promptOrOptions: string | Partial<Activity> | PromptOptions,
+    ): DialogFlowTask<T>; 
+
+    /**
+     * Helper function to simplify formatting the options for calling a prompt dialog.
+     *
+     * @param dialogId ID of the prompt dialog to start.
+     * @param promptOrOptions The text of the initial prompt to send the user,
+     * the [Activity](xref:botframework-schema.Activity) to send as the initial prompt, or
+     * the object with which to format the prompt dialog.
+     * @param choices Optional. Array of choices for the user to choose from,
+     * for use with a [ChoicePrompt](xref:botbuilder-dialogs.ChoicePrompt).
+     * 
+     * @returns The task instance which will yield the prompt result.
+     * 
+     * @remarks
+     * This helper method formats the object to use as the `options` parameter, and then calls
+     * callDialog to start the specified prompt dialog.
+     *
+     * ```JavaScript
+     * return yield context.prompt<boolean>('confirmPrompt', `Are you sure you'd like to quit?`);
+     * ```
+     *
+     * **See also**
+     *
+     * - [prompt](xref:botbuilder-dialogs.DialogContext.prompt)
+     */
+    prompt<T>(
+        dialogId: string,
+        promptOrOptions: string | Partial<Activity> | PromptOptions,
+        choices: (string | Choice)[],
+    ): DialogFlowTask<T>; 
+
+
+    /**
      * Sends a message to the user.
      * 
      * @param activityOrText The activity or text to send.
@@ -135,8 +196,8 @@ export interface DialogFlowContext<O extends object = {}>  {
      * @param func The function to bind.
      * @returns The bound function which is safe for use in the dialog flow.
      * @remarks
-     * The returned function will always returns the same value at specific points
-     * in the dialog flow function, making it deterministic and safe for replay.
+     * The returned function will always return the same value at specific points in the dialog flow function, 
+     * making it deterministic and safe for replay.
      */
     bind<T extends (...args: any[]) => any>(
         func: T

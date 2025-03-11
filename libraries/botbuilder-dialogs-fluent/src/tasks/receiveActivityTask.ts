@@ -1,10 +1,10 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-import { SuspendDialogFlowTask } from "./suspendDialogFlowTask";
+import { SuspendDialogFlowTask } from './suspendDialogFlowTask';
+import { defaultProjector } from './abstractDialogFlowTask';
 import { DialogTurnResult, DialogContext, Dialog } from 'botbuilder-dialogs';
 import { Activity } from 'botbuilder-core';
-import { convertToJson } from "./replayPolicy";
 
 
 /**
@@ -16,7 +16,7 @@ export class ReceiveActivityTask extends SuspendDialogFlowTask<Activity> {
      * Initializes a new ReceiveActivityTask instance.
      */
     constructor() {
-        super(convertToJson, context => Promise.resolve<Activity>(context.activity));
+        super(defaultProjector, context => Promise.resolve<Activity>(context.activity));
     }
 
     /**

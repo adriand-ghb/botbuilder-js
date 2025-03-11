@@ -1,39 +1,54 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-import { DialogFlowContext } from './dialogFlowContext';
-import { DialogFlowTask } from './dialogFlowTask';
-import { AbstractDialogFlowTask, defaultProjector } from './tasks/abstractDialogFlowTask';
-import { AsyncCallTask } from './tasks/asyncCallTask';
-import { DialogCallTask } from './tasks/dialogCallTask';
-import { RestartDialogFlowTask } from './tasks/restartDialogFlowTask';
-import { SuspendDialogFlowTask } from './tasks/suspendDialogFlowTask';
-import { ReceiveActivityTask } from './tasks/receiveActivityTask';
-import { TaskResult } from './tasks/taskResult';
-import { createHash, randomUUID } from 'crypto';
-import util from 'util';
-import * as assert from 'node:assert';
 import { 
+    DialogFlowContext,
+    DialogFlowTask,
+    DialogFlowError,
+    DialogFlowBoundCallable
+ } from './';
+
+import { 
+    AbstractDialogFlowTask, 
+    AsyncCallTask,
+    DialogCallTask,
+    RestartDialogFlowTask,
+    SuspendDialogFlowTask,
+    ReceiveActivityTask,
+    TaskResult, 
+    taskSucceeded, 
+    taskFailed, 
+    defaultProjector 
+} from './tasks/';
+
+import { 
+    createHash, 
+    randomUUID 
+} from 'crypto';
+
+import { 
+    Choice,
     DialogContext,
     DialogReason, 
     DialogTurnResult,
+    PromptOptions,
 } from 'botbuilder-dialogs';
 
-import { Activity, ResourceResponse, TokenResponse, TurnContext } from 'botbuilder-core';
-
 import { 
-    convertToJson,
-    convertFromJson,
- } from './tasks/replayPolicy';
-import { DialogFlowError } from './dialogFlowError';
-import { Jsonify, JsonValue } from 'type-fest';
-import { DialogFlowBoundCallable } from './dialogFlowBoundCallable';
+    Activity, 
+    ResourceResponse, 
+    TokenResponse, 
+    TurnContext 
+} from 'botbuilder-core';
+
+import { Jsonify, JsonPrimitive, JsonValue } from 'type-fest';
+import * as assert from 'node:assert';
 
 /**
  * Workflow dispatcher implementation.
  */
-export class WorkflowDispatcher<O extends object, R = any> implements DialogFlowContext<O> {
-    private readonly state: WorkflowDialogState<O>;
+export class DialogFlowDispatcher<O extends object, R = any> implements DialogFlowContext<O> {
+    private readonly state: FluentDialogState<O>;
     private nextTask: number;
 
     /**
@@ -41,7 +56,7 @@ export class WorkflowDispatcher<O extends object, R = any> implements DialogFlow
      * @param dc The dialog context for the current turn of conversation with the user.
      */
     constructor(private readonly dc: DialogContext) {
-        this.state = dc.activeDialog!.state as WorkflowDialogState<O>
+        this.state = dc.activeDialog!.state as FluentDialogState<O>
         this.nextTask = 0;
     }
 
@@ -70,53 +85,25 @@ export class WorkflowDispatcher<O extends object, R = any> implements DialogFlow
      * @inheritdoc
      */
     public get isReplaying(): boolean {
-        return (this.nextTask < this.state.history.length) || !!(this.state.resumeState)
+        return (this.nextTask < this.state.history.length) || 
+            !!(this.state.resumeState)
     }
 
     /**
      * @inheritdoc
      */
     public get currentUtcTime(): Date {
-       if (this.nextTask == this.state.history.length) {
-            assert.ok(!this.state.resumeState);
-            this.state.history.push({
-                 kind: "currentUtcTime",
-                 hashedId: '',
-                 result: {success: true, value: new Date().toJSON()}
-            });
-       }
-
-       assert.ok(this.nextTask < this.state.history.length);
-       const entry = this.state.history[this.nextTask++];
-
-       assert.ok(entry.result.success == true);
-       assert.ok(typeof entry.result.value === 'string');
-       assert.equal("currentUtcTime", entry.kind);
-       assert.equal('', entry.hashedId);
-       return new Date(entry.result.value);
+        return new Date(
+            this.callBuiltIn(
+                Date.now, 
+                'currentUtcTime'));
     }
 
     /**
      * @inheritdoc
      */
     public newGuid(): string {
-        if (this.nextTask == this.state.history.length) {
-             assert.ok(!this.state.resumeState);
-             this.state.history.push({
-                  kind: "newGuid",
-                  hashedId: '',
-                  result: {success: true, value: randomUUID()}
-             });
-        }
- 
-        assert.ok(this.nextTask < this.state.history.length);
-        const entry = this.state.history[this.nextTask++];
- 
-        assert.ok(entry.result.success == true);
-        assert.ok(typeof entry.result.value === 'string');
-        assert.equal("newGuid", entry.kind);
-        assert.equal('', entry.hashedId);
-        return entry.result.value; 
+        return this.callBuiltIn(randomUUID, 'newGuid');
     }
 
     /**
@@ -154,6 +141,39 @@ export class WorkflowDispatcher<O extends object, R = any> implements DialogFlow
         return new DialogCallTask<T>(dialogId, options, defaultProjector);
     }
 
+
+    /**
+     * Helper function to simplify formatting the options for calling a prompt dialog.
+     *
+     * @param dialogId ID of the prompt dialog to start.
+     * @param promptOrOptions The text of the initial prompt to send the user,
+     * or the [Activity](xref:botframework-schema.Activity) to send as the initial prompt.
+     * @param choices Optional. Array of choices for the user to choose from,
+     * for use with a [ChoicePrompt](xref:botbuilder-dialogs.ChoicePrompt).
+     * @returns The task instance which will yield the prompt result.
+     */
+    public prompt<T = any>(
+        dialogId: string,
+        promptOrOptions: string | Partial<Activity> | PromptOptions,
+        choices?: (string | Choice)[],
+    ): DialogFlowTask<T> {
+        let options: PromptOptions;
+        if (
+            (typeof promptOrOptions === 'object' && (promptOrOptions as Activity).type !== undefined) ||
+            typeof promptOrOptions === 'string'
+        ) {
+            options = { prompt: promptOrOptions as string | Partial<Activity> };
+        } else {
+            options = { ...(promptOrOptions as PromptOptions) };
+        }
+
+        if (choices) {
+            options.choices = choices;
+        }
+
+        return this.callDialog<T>(dialogId, options);
+    }
+    
     /**
      * @inheritdoc
      */
@@ -189,36 +209,31 @@ export class WorkflowDispatcher<O extends object, R = any> implements DialogFlow
     ): DialogFlowBoundCallable<Parameters<T>, Jsonify<ReturnType<T>>> {
 
         const context = this;
+        const kind = `boundFunc_${func.name}_${func.length}`;
 
         function bound(...args: Parameters<T>) : Jsonify<ReturnType<T>> {
-            const callId = context.getHashOf(`${func.name}(${args.toString()})`);
+            const callId = context.getHashOf(`${args.toString()}`);
             if (context.nextTask == context.state.history.length) {
                 assert.ok(!context.isReplaying);
 
                 try {
                     context.state.history.push({
-                        kind: "boundFunc",
+                        kind: kind,
                         hashedId: callId,
-                        result: { 
-                            success: true,  
-                            value: convertToJson(func(...args)) 
-                        }
+                        result: taskSucceeded(func(...args)) 
                     });
                 } catch (error) {
                     context.state.history.push({
-                        kind: "boundFunc",
+                        kind: kind,
                         hashedId: callId,
-                        result: { 
-                            success: false,
-                            error: util.inspect(error, {depth: null, showHidden: true})
-                        }
+                        result: taskFailed(error)
                     });
                 }
             }
 
             const entry = context.state.history[context.nextTask++];
     
-            assert.equal("boundFunc", entry.kind);
+            assert.equal(kind, entry.kind);
             assert.equal(callId, entry.hashedId);
     
             if (entry.result.success == true) {
@@ -230,25 +245,25 @@ export class WorkflowDispatcher<O extends object, R = any> implements DialogFlow
 
         bound.project = <O>(projector: (value: Jsonify<ReturnType<T>>) => O) => {
             return (...args: Parameters<T>) : O => projector(bound(...args));
-        }
+        };
 
         return bound;
     }
 
     /**
      * Starts or resumes the workflow.
-     * @param workflow The workflow function to run.
+     * @param dialogFlow The workflow function to run.
      * @param reason The reason for starting or resuming the workflow.
      * @param resumeResult The result of the previous suspension, if any.
      * @returns A promise that resolves to the turn result.
      */
     public async run(
-        workflow: (context: DialogFlowContext<O>) => Generator<DialogFlowTask, R>,
+        dialogFlow: (context: DialogFlowContext<O>) => Generator<DialogFlowTask, R>,
         reason: DialogReason,
         resumeResult?: any
     ): Promise<DialogTurnResult> {
 
-        const generator = workflow(this);
+        const generator = dialogFlow(this);
 
         // Replay the recorded histroy
         for (var it = generator.next(); it.done === false && this.nextTask < this.state.history.length; ) {
@@ -354,12 +369,40 @@ export class WorkflowDispatcher<O extends object, R = any> implements DialogFlow
 
         return task.replay(generator, entry.result);
     }
- }
+ 
+    /**
+     * Calls a built-in function and records its result.
+     * @param func The function to call.
+     * @param kind The kind of the task.
+     * @returns The result of the function call.
+     */
+    private callBuiltIn<T extends JsonPrimitive>(
+        func: () => T, 
+        kind: string
+    ) : T {
+        if (this.nextTask == this.state.history.length) {
+            assert.ok(!this.state.resumeState);
+            this.state.history.push({
+                kind: kind,
+                hashedId: '',
+                result: {success: true, value: func()}
+            });
+        }
+
+        assert.ok(this.nextTask < this.state.history.length);
+        const entry = this.state.history[this.nextTask++];
+
+        assert.ok(entry.result.success == true);
+        assert.equal(kind, entry.kind);
+        assert.equal('', entry.hashedId);
+        return entry.result.value;
+    }
+}
 
 /**
- * Represents a workflow execution history entry.
+ * Represents a dialog execution flow history entry.
  */
-export interface WorkflowHistoryEntry {
+export interface DialogFlowHistoryEntry {
     /**
      * The task's kind.
      */
@@ -377,9 +420,9 @@ export interface WorkflowHistoryEntry {
 }
 
 /**
- * Represents the workflow suspension state.
+ * Represents the dialog execution flow suspension state.
  */
-export interface WorkflowResumeState {
+export interface DialogFlowResumeState {
     /**
      * The task's kind.
      */
@@ -392,21 +435,21 @@ export interface WorkflowResumeState {
 }
 
 /**
- * Represents the workflow dialog state.
+ * Represents the fluent dialog state.
  */
-export interface WorkflowDialogState<O extends object> {
+export interface FluentDialogState<O extends object> {
     /**
-     * The workflow options.
+     * The dialog flow options.
      */
     options: O;
 
     /**
-     * The workflow execution history.
+     * The dialog flow execution history.
      */
-    history: WorkflowHistoryEntry[];
+    history: DialogFlowHistoryEntry[];
 
     /**
-     * The workflow suspension state.
+     * The dialog flow suspension state.
      */
-    resumeState?: WorkflowResumeState;
+    resumeState?: DialogFlowResumeState;
 }

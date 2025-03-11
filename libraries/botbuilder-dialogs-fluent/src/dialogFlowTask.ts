@@ -4,7 +4,7 @@
 import { 
     RetryPolicy, 
     RetrySettings 
-} from './tasks/retryPolicy'
+} from './'
 
 import { Jsonify } from 'type-fest'
 import { ZodType, ZodTypeDef } from 'zod'

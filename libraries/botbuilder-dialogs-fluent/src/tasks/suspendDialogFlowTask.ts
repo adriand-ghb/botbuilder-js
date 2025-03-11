@@ -1,12 +1,11 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-import { AbstractDialogFlowTask} from './abstractDialogFlowTask'
-import { TaskResult } from './taskResult'
+import { AbstractDialogFlowTask, TaskResult} from './abstractDialogFlowTask';
+import { DialogFlowTask } from '../dialogFlowTask';
 import { Jsonify } from 'type-fest';
 import { DialogTurnResult, DialogContext } from 'botbuilder-dialogs';
 import { TurnContext } from 'botbuilder-core';
-import { DialogFlowTask } from '../dialogFlowTask';
 
 function resumeDefault<R>(context: TurnContext, result: any): Promise<R> {
     return Promise.resolve<R>(result);

@@ -27,7 +27,7 @@ function setupDialogFlowTest(...dialogsOrFlows) {
     // Create new ConversationState with MemoryStorage and register the state as middleware.
     const convoState = new ConversationState(new MemoryStorage());
 
-    // Create a DialogState property, DialogSet and register the WorkflowDialog.
+    // Create a DialogState property, DialogSet and register the dialog flow.
     const dialogState = convoState.createProperty('dialogState');
     const dialogs = new DialogSet(dialogState);
 
@@ -49,12 +49,12 @@ describe('FluentDialog', function () {
     it('should send and receive activities.', async function () {
 
         function *testDialogFlow(context) {
-            yield *context.sendActivity('bot responding.').result();
+            yield context.sendActivity('bot responding.');
         
-            let message = yield *context.receiveActivity().then(activity => activity.text).result();
+            let message = yield context.receiveActivity().then(activity => activity.text);
             assert(message === 'continue', 'Unexpected input received.');
         
-            return 'ending WorkflowDialog.';
+            return 'ending dialog flow.';
         }
         
         // Initialize TestAdapter.
@@ -64,7 +64,7 @@ describe('FluentDialog', function () {
             .send(beginMessage)
             .assertReply('bot responding.')
             .send('continue')
-            .assertReply('ending WorkflowDialog.')
+            .assertReply('ending dialog flow.')
             .startTest();
     });
 
@@ -72,14 +72,14 @@ describe('FluentDialog', function () {
 
         function *testDialogFlow(context) {
 
-            let response = yield context.callDialog('prompt', {prompt: 'say something'});
+            let response = yield context.prompt('prompt', 'say something');
 
             yield context.sendActivity(`you said: ${response}`);
         
             let message = yield context.receiveActivity().then(activity => activity.text);
             assert(message === 'continue', 'Unexpected input received.');
         
-            return 'ending WorkflowDialog.';
+            return 'ending dialog flow.';
         }
         
         // Initialize TestAdapter.
@@ -91,7 +91,7 @@ describe('FluentDialog', function () {
             .send('hello world')
             .assertReply('you said: hello world')
             .send('continue')
-            .assertReply('ending WorkflowDialog.')
+            .assertReply('ending dialog flow.')
             .startTest();
     });
 
@@ -101,10 +101,10 @@ describe('FluentDialog', function () {
         function *testDialogFlow(context) {
             yield context.call(tracked);
 
-            let message = yield *context.receiveActivity().then(activity => activity.text).result();
+            let message = yield context.receiveActivity().then(activity => activity.text);
             assert(message === 'continue', 'Unexpected input received.');
 
-            return 'ending WorkflowDialog.';
+            return 'ending dialog flow.';
         }
         
         // Initialize TestAdapter.
@@ -114,7 +114,7 @@ describe('FluentDialog', function () {
             .send(beginMessage)
             .assertReply('bot responding.')
             .send('continue')
-            .assertReply('ending WorkflowDialog.')
+            .assertReply('ending dialog flow.')
             .startTest();
 
         assert.strictEqual(tracked.mock.callCount(), 1, 'Unexpected call count.');
@@ -123,9 +123,9 @@ describe('FluentDialog', function () {
     it('should restart dialog flow.', async function () {
 
         function *testDialogFlow(context) {            
-            yield *context.sendActivity('bot responding.').result();
+            yield context.sendActivity('bot responding.');
         
-            let message = yield *context.receiveActivity().then(activity => activity.text).result();
+            let message = yield context.receiveActivity().then(activity => activity.text);
             assert(message === 'continue', 'Unexpected input received.');
 
             let iterationCount = context.options?.iterationCount ?? 0;
@@ -133,7 +133,7 @@ describe('FluentDialog', function () {
                 yield context.restart({iterationCount: iterationCount});
             }
 
-            return 'ending WorkflowDialog.';
+            return 'ending dialog flow.';
         }
         
         // Initialize TestAdapter.
@@ -147,7 +147,7 @@ describe('FluentDialog', function () {
             .send('continue')
             .assertReply('bot responding.')
             .send('continue')
-            .assertReply('ending WorkflowDialog.')
+            .assertReply('ending dialog flow.')
             .startTest();
     });
 
@@ -167,11 +167,11 @@ describe('FluentDialog', function () {
                 assert(refTime.getTime() === time.getTime(), 'Unexpected currentUtcTime received.');
             }
         
-            let message = yield *context.receiveActivity().then(activity => activity.text).result();
+            let message = yield context.receiveActivity().then(activity => activity.text);
             assert(message === 'continue', 'Unexpected input received.');
             assert(replayed, 'Unexpected replay detected.');
 
-            return 'ending WorkflowDialog.';
+            return 'ending dialog flow.';
         }
         
         // Initialize TestAdapter.
@@ -180,7 +180,7 @@ describe('FluentDialog', function () {
         await adapter
             .send(beginMessage)
             .send('continue')
-            .assertReply('ending WorkflowDialog.')
+            .assertReply('ending dialog flow.')
             .startTest();
     });
 
@@ -205,11 +205,11 @@ describe('FluentDialog', function () {
             }
         
             let replayed = context.isReplaying;
-            let message = yield *context.receiveActivity().then(activity => activity.text).result();
+            let message = yield context.receiveActivity().then(activity => activity.text);
             assert(message === 'continue', 'Unexpected input received.');
             assert(replayed, 'Unexpected replay detected.');
 
-            return 'ending WorkflowDialog.';
+            return 'ending dialog flow.';
         }
         
         // Initialize TestAdapter.
@@ -218,7 +218,7 @@ describe('FluentDialog', function () {
         await adapter
             .send(beginMessage)
             .send('continue')
-            .assertReply('ending WorkflowDialog.')
+            .assertReply('ending dialog flow.')
             .startTest();
     });
     
@@ -247,11 +247,11 @@ describe('FluentDialog', function () {
                 assert(refMessage2 === result2, 'Unexpected value received.');
             }
         
-            let message = yield *context.receiveActivity().then(activity => activity.text).result();
+            let message = yield context.receiveActivity().then(activity => activity.text);
             assert(message === 'continue', 'Unexpected input received.');
             assert(replayed, 'Unexpected replay detected.');
 
-            return 'ending WorkflowDialog.';
+            return 'ending dialog flow.';
         }
         
         // Initialize TestAdapter.
@@ -260,7 +260,7 @@ describe('FluentDialog', function () {
         await adapter
             .send(beginMessage)
             .send('continue')
-            .assertReply('ending WorkflowDialog.')
+            .assertReply('ending dialog flow.')
             .startTest();
     });
 });

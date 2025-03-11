@@ -2,8 +2,8 @@
 // Licensed under the MIT License.
 
 import * as assert from 'node:assert';
-import { SuspendDialogFlowTask } from "./suspendDialogFlowTask";
-import { TaskResult } from './taskResult'
+import { SuspendDialogFlowTask } from './suspendDialogFlowTask';
+import { TaskResult } from './abstractDialogFlowTask';
 import { DialogTurnResult, DialogContext } from 'botbuilder-dialogs';
 import { TurnContext } from 'botbuilder-core';
 

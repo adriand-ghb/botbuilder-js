@@ -2,8 +2,7 @@
 // Licensed under the MIT License.
 
 import { DialogFlowTask } from '../dialogFlowTask';
-import { AbstractDialogFlowTask, defaultProjector } from './abstractDialogFlowTask'
-import { TaskResult } from './taskResult'
+import { AbstractDialogFlowTask, TaskResult, defaultProjector } from './abstractDialogFlowTask'
 import { TurnContext } from 'botbuilder-core'
 import { Jsonify } from 'type-fest';
 
