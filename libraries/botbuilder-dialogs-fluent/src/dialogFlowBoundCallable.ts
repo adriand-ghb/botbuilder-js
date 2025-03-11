@@ -19,7 +19,7 @@ export interface DialogFlowBoundCallable<A extends any[], R extends JsonValue> {
     (...args: A): R;
 
     /**
-     * Gets a new function that taks the same arguments as the bound function and returns an observable
+     * Gets a new function that has the same arguments as the bound function and returns an observable
      * value of a different type.
      * 
      * @template T The type of the observable value produced by the projector
